@@ -136,10 +136,10 @@ def main():
             agg_content_loss += content_loss.item()
             agg_style_loss += style_loss.item()
 
-            if (batch_id + 1) % log_interval == 0:
+            if (batch_id + 1) % log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
                 meta = {'content_loss': content_loss.item(), 'style_loss': style_loss.item(),
                         'total_loss': content_loss.item()+style_loss.item()}
-                logger.scalars_summary(f'{tag}/train', meta, batch_id + 1)
+                logger.scalars_summary(f'{tag}/train', meta, epoch * len(train_loader.dataset) + count + 1)
 
                 mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal: {:.6f}".format(
                     time.ctime(), epoch + 1, count, len(train_dataset),
