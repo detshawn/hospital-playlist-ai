@@ -90,10 +90,11 @@ def main():
     if transfer_learning:
         checkpoint = torch.load(ckpt_model_path, map_location=device)
         transformer.load_state_dict(checkpoint['model_state_dict'])
-        transformer.to(device)
         transfer_learning_epoch = checkpoint['epoch']
     else:
         transfer_learning_epoch = 0
+
+    transformer.to(device)
 
     # training
     for epoch in range(transfer_learning_epoch, num_epochs):
