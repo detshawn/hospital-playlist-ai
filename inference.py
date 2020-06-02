@@ -17,7 +17,7 @@ from utils import *
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(device)
+    print(f'device: {device}')
 
     # config
     style_image_path = args.style_image_path

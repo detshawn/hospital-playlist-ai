@@ -20,12 +20,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'device: {device}')
 
-    style_image_location = "./dataset/style/summeringiiwebsite.jpg"
-
-    # style_image_sample = Image.open(style_image_location, 'r')
-    # display(style_image_sample)
-
     # config
+    style_image_path = args.style_image_path
+
     tag = args.tag
     train_dataset_dir = args.train_dataset_dir
     train_dataset_subdir = args.train_dataset_subdir
@@ -47,6 +44,9 @@ def main():
         return "ckpt_epoch_" + str(_epoch) + "_batch_id_" + str(_batch_id + 1) + ".ckpt"
 
     transfer_learning = False  # inference or training first --> False / Transfer learning --> True
+
+    # style_image_sample = Image.open(style_image_path, 'r')
+    # display(style_image_sample)
 
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
@@ -77,7 +77,7 @@ def main():
     mse_loss = nn.MSELoss()
 
     # style image importing and pre-processing
-    style = load_image(filename=style_image_location, size=None, scale=None)
+    style = load_image(filename=style_image_path, size=None, scale=None)
     style = style_transform(style)
     style = style.repeat(batch_size, 1, 1, 1).to(device)
 
@@ -172,6 +172,8 @@ if __name__ == '__main__':
     # train_dataset_subdir = "val2017"
     parser.add_argument('-train_dataset_dir', required=True)
     parser.add_argument('-train_dataset_subdir', required=True)
+
+    parser.add_argument('-style_image_path', default="./dataset/style/summeringiiwebsite.jpg")
 
     parser.add_argument('-batch_size', default=8, type=int)
     parser.add_argument('-num_epochs', default=64, type=int)
