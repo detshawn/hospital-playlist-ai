@@ -36,12 +36,13 @@ def main():
 
     # inference data importing
     if option == "image":
-        content_image = load_image(content_image_path, scale=2)
+        content_image = load_image(content_image_path)
         content_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Lambda(lambda x: x.mul(255))
         ])
         content_image = content_transform(content_image)
+        print(f'content_image shape: {content_image.shape}')
         content_image = content_image.unsqueeze(0).to(device)
 
         with torch.no_grad():
