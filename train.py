@@ -26,16 +26,20 @@ def main():
     display(style_image_sample)
 
     # config
+    tag = args.tag
+    train_dataset_dir = args.train_dataset_dir
+    train_dataset_subdir = args.train_dataset_subdir
+
     batch_size = args.batch_size
     random_seed = 10
     num_epochs = args.num_epochs
     initial_lr = args.initial_lr
-    train_dataset_dir = args.train_dataset_dir
-    train_dataset_subdir = args.train_dataset_subdir
 
     content_weight = args.content_weight
     style_weight = args.style_weight
     log_interval = args.log_interval
+    log_dir = args.log_dir
+    logger = Logger(log_dir)
     checkpoint_interval = args.checkpoint_interval
     checkpoint_dir = args.checkpoint_dir
     defined_ckpt_filename = args.ckpt_filename
@@ -132,6 +136,10 @@ def main():
             agg_style_loss += style_loss.item()
 
             if (batch_id + 1) % log_interval == 0:
+                meta = {'content_loss': content_loss.item(), 'style_loss': style_loss.item(),
+                        'total_loss': content_loss.item()+style_loss.item()}
+                logger.scalars_summary(f'{tag}/train', meta, batch_id + 1)
+
                 mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal: {:.6f}".format(
                     time.ctime(), epoch + 1, count, len(train_dataset),
                                   agg_content_loss / (batch_id + 1),
@@ -139,6 +147,7 @@ def main():
                                   (agg_content_loss + agg_style_loss) / (batch_id + 1)
                 )
                 print(mesg)
+
 
             if checkpoint_dir is not None and (batch_id + 1) % checkpoint_interval == 0:
                 transformer.eval().cpu()
@@ -154,8 +163,15 @@ def main():
 
                 transformer.to(device).train()
 
+
 if __name__ == '__main__':
     parser = ArgumentParser()
+    parser.add_argument('-tag', '-t', required=True)
+    # train_dataset_dir = "~/Documents/proj/ML/Deep Learning/cocodataset"
+    # train_dataset_subdir = "val2017"
+    parser.add_argument('-train_dataset_dir', required=True)
+    parser.add_argument('-train_dataset_subdir', required=True)
+
     parser.add_argument('-batch_size', default=8, type=int)
     parser.add_argument('-num_epochs', default=64, type=int)
     parser.add_argument('-initial_lr', default=1e-3, type=float)
@@ -163,15 +179,11 @@ if __name__ == '__main__':
     parser.add_argument('-style_weight', default=1e10, type=float)
     
     parser.add_argument('-log_interval', default=50, type=int)
+    parser.add_argument('-log_dir', default='./log')
     parser.add_argument('-checkpoint_interval', default=500, type=int)
 
     parser.add_argument('-checkpoint_dir', default='./ckpts/')
     parser.add_argument('-ckpt_filename', default=None)
-
-    # train_dataset_dir = "~/Documents/proj/ML/Deep Learning/cocodataset"
-    # train_dataset_subdir = "val2017"
-    parser.add_argument('-train_dataset_dir', required=True)
-    parser.add_argument('-train_dataset_subdir', required=True)
 
     parser.add_argument('--transfer_learning', action='store_true')
 

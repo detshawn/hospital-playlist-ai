@@ -1,5 +1,6 @@
 from PIL import Image
 from IPython.display import display
+from tensorboardX import SummaryWriter
 
 """ Util Functions """
 
@@ -43,3 +44,32 @@ def normalize_batch(batch):
     std = batch.new_tensor([0.229, 0.224, 0.225]).view(-1, 1, 1)
     batch = batch.div_(255.0)
     return (batch - mean) / std
+
+
+class Logger(object):
+    def __init__(self, logdir='./log'):
+        self.writer = SummaryWriter(logdir)
+
+    def scalar_summary(self, tag, value, step):
+        self.writer.add_scalar(tag, value, step)
+        self.writer.flush()
+
+    def scalars_summary(self, tag, dictionary, step):
+        self.writer.add_scalars(tag, dictionary, step)
+        self.writer.flush()
+
+    def text_summary(self, tag, value, step):
+        self.writer.add_text(tag, value, step)
+        self.writer.flush()
+
+    def graph_summary(self, model, input_to_model):
+        self.writer.add_graph(model, input_to_model=input_to_model, profile_with_cuda=torch.cuda.is_available())
+        self.writer.flush()
+
+    def audio_summary(self, tag, value, step, sr):
+        self.writer.add_audio(tag, value, step, sample_rate=sr)
+        self.writer.flush()
+
+    def image_summary(self, tag, value, step):
+        self.writer.add_image(tag, value, step, dataformats='HWC')
+        self.writer.flush()
