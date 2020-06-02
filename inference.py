@@ -15,7 +15,7 @@ from utils import *
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-style_image_location = "/content/gdrive/My Drive/Colab_Notebooks/data/vikendi.jpg" #FIXME
+style_image_location = "./dataset/style/summeringiiwebsite.jpg"
 
 style_image_sample = Image.open(style_image_location, 'r')
 display(style_image_sample)
@@ -65,7 +65,7 @@ gram_style = [gram_matrix(y) for y in features_style]
 
 # inference data importing
 if option == "image":
-    content_image = load_image("/content/gdrive/My Drive/Colab_Notebooks/data/sanok_test.png", scale=2)  # FIXME
+    content_image = load_image("./dataset/inference/hospital-playlist-test.jpg", scale=2)
     content_transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))

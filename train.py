@@ -16,7 +16,7 @@ from utils import *
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-style_image_location = "/content/gdrive/My Drive/Colab_Notebooks/data/vikendi.jpg" #FIXME
+style_image_location = "./dataset/style/summeringiiwebsite.jpg"
 
 style_image_sample = Image.open(style_image_location, 'r')
 display(style_image_sample)
