@@ -38,6 +38,7 @@ class VGG16(torch.nn.Module):
         out = vgg_outputs(h_relu1_2, h_relu2_2, h_relu3_3, h_relu4_3)
         return out
 
+
 class ConvLayer(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride):
         super(ConvLayer, self).__init__()
@@ -49,6 +50,7 @@ class ConvLayer(nn.Module):
         out = self.reflection_pad(x)
         out = self.conv2d(out)
         return out
+
 
 class ResidualBlock(nn.Module):
     """ResidualBlock
@@ -71,6 +73,7 @@ class ResidualBlock(nn.Module):
         out = out + residual
         return out
 
+
 class UpsampleConvLayer(nn.Module):
     """UpsampleConvLayer
     Upsamples the input and then does a convolution. This method gives better results
@@ -92,6 +95,7 @@ class UpsampleConvLayer(nn.Module):
         out = self.reflection_pad(x_in)
         out = self.conv2d(out)
         return out
+
 
 class TransformerNet(nn.Module):
     def __init__(self):

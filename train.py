@@ -18,12 +18,12 @@ from utils import *
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(device)
+    print(f'device: {device}')
 
     style_image_location = "./dataset/style/summeringiiwebsite.jpg"
 
-    style_image_sample = Image.open(style_image_location, 'r')
-    display(style_image_sample)
+    # style_image_sample = Image.open(style_image_location, 'r')
+    # display(style_image_sample)
 
     # config
     tag = args.tag
@@ -65,7 +65,7 @@ def main():
     ])
 
     # training data importing and pre-processing
-    print(glob.glob("/".join([train_dataset_dir, train_dataset_subdir]) + "/*"))
+    print(f'train dataset list: {glob.glob("/".join([train_dataset_dir, train_dataset_subdir]) + "/*")}')
     train_dataset = datasets.ImageFolder(train_dataset_dir, transform)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size)
 
