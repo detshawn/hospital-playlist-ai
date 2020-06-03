@@ -51,42 +51,12 @@ def main():
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
 
-    # set the pre-processing functions: transform(), style_transform()
-    transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(256),
-        transforms.ToTensor(),
-        transforms.Lambda(lambda x: x.mul(255))
-    ])
-
-    style_transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.mul(255))
-    ])
-
-    # training data importing and pre-processing
-    print(f'train dataset list: {glob.glob("/".join([train_dataset_dir, train_dataset_subdir]) + "/*")}')
-    train_dataset = datasets.ImageFolder(train_dataset_dir, transform)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size)
-
     # model and optimizer construction
     transformer = TransformerNet()
     vgg = VGG16(requires_grad=False).to(device)
 
-    optimizer = torch.optim.Adam(transformer.parameters(), initial_lr)
-    mse_loss = nn.MSELoss()
-
-    # style image importing and pre-processing
-    style = load_image(filename=style_image_path, size=None, scale=None)
-    style = style_transform(style)
-    style = style.repeat(batch_size, 1, 1, 1).to(device)
-
-    features_style = vgg(normalize_batch(style))
-    gram_style = [gram_matrix(y) for y in features_style]
-
-    # transfer learning setting (is it first-time or continued learning?)
+    # transfer learning set-up and existing model loading (is it first-time or continued learning?)
     ckpt_model_path = os.path.join(checkpoint_dir, defined_ckpt_filename)
-
     if transfer_learning:
         checkpoint = torch.load(ckpt_model_path, map_location=device)
         transformer.load_state_dict(checkpoint['model_state_dict'])
@@ -95,6 +65,45 @@ def main():
         transfer_learning_epoch = 0
 
     transformer.to(device)
+
+    optimizer = torch.optim.Adam(transformer.parameters(), initial_lr)
+    mse_loss = nn.MSELoss()
+
+    # desired size of the output image
+    imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
+
+    # training data importing and pre-processing
+    transform = transforms.Compose([
+        transforms.Resize(imsize),
+        transforms.CenterCrop(imsize),
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.mul(255))
+    ])
+    print(f'train dataset list: {glob.glob("/".join([train_dataset_dir, train_dataset_subdir]) + "/*")}')
+    train_dataset = datasets.ImageFolder(train_dataset_dir, transform)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size)
+
+    # style image importing and pre-processing
+    style = load_image(filename=style_image_path, size=None, scale=None)
+    style_transform = transforms.Compose([
+        transforms.Resize(imsize),
+        transforms.CenterCrop(imsize),
+        # transforms.RandomCrop(imsize),
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.mul(255))
+    ])
+    style = style_transform(style)
+    save_image('./output/style_transformed.png', style)
+    style = style.repeat(batch_size, 1, 1, 1).to(device)
+
+    # check the size
+    # print(f'train_dataset[0][0].size(): {train_dataset[0][0].size()}')
+    # print(f'style[0].size(): {style[0].size()}')
+    assert (train_dataset[0][0].size() == style[0].size())
+
+    # pre-calculating gram_style
+    features_style = vgg(normalize_batch(style))
+    gram_style = [gram_matrix(y) for y in features_style]
 
     # training
     for epoch in range(transfer_learning_epoch, num_epochs):
@@ -148,7 +157,6 @@ def main():
                                   (agg_content_loss + agg_style_loss) / (batch_id + 1)
                 )
                 print(mesg)
-
 
             if checkpoint_dir is not None and (batch_id + 1) % checkpoint_interval == 0:
                 transformer.eval().cpu()
