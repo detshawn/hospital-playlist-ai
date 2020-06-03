@@ -4,5 +4,6 @@ numpy
 opencv-python
 image
 ipython
+tensorboard
 tensorboardX
 matplotlib
