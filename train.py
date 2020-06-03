@@ -86,24 +86,25 @@ def main():
     # style image importing and pre-processing
     style = load_image(filename=style_image_path, size=None, scale=None)
     style_transform = transforms.Compose([
-        transforms.CenterCrop(imsize),
-        # transforms.RandomCrop(imsize),
+        transforms.Resize(imsize*4),
+        # transforms.CenterCrop(imsize),
+        transforms.RandomCrop(imsize),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
     ])
-    style = style_transform(style)
-    save_image('./output/style_transformed.png', style)
-    style = style.repeat(batch_size, 1, 1, 1).to(device)
-    exit(0)
+    num_styles = 5
+    styles = [style_transform(style) for _ in range(num_styles)]
+    # save_image('./output/style_transformed.png', style)
+    styles = [style.repeat(batch_size, 1, 1, 1).to(device) for style in styles]
 
     # check the size
     # print(f'train_dataset[0][0].size(): {train_dataset[0][0].size()}')
     # print(f'style[0].size(): {style[0].size()}')
-    assert (train_dataset[0][0].size() == style[0].size())
+    assert (train_dataset[0][0].size() == styles[0][0].size())
 
     # pre-calculating gram_style
-    features_style = vgg(normalize_batch(style))
-    gram_style = [gram_matrix(y) for y in features_style]
+    features_styles = [vgg(normalize_batch(style)) for style in styles]
+    gram_styles = [[gram_matrix(y) for y in features_style] for features_style in features_styles]
 
     # training
     for epoch in range(transfer_learning_epoch, num_epochs):
@@ -131,6 +132,7 @@ def main():
             content_loss = content_weight * mse_loss(features_y.relu2_2, features_x.relu2_2)
 
             style_loss = 0.
+            gram_style = gram_styles[batch_id % len(gram_styles)]
             for ft_y, gm_s in zip(features_y, gram_style):
                 gm_y = gram_matrix(ft_y)
                 style_loss += mse_loss(gm_y, gm_s[:n_batch, :, :])
