@@ -149,7 +149,7 @@ if __name__ == '__main__':
     parser.add_argument('-content_video_path', default="./dataset/inference/test.mp4")
     parser.add_argument('-output_dir', '-o', default="./output")    
 
-    parser.add_argument('-style_image_path', default="./dataset/style/summeringiiwebsite.jpg")
+    parser.add_argument('-style_image_path', default="./dataset/style/andy_dixon_summering.jpg")
 
     parser.add_argument('-checkpoint_dir', default='./ckpts/')
     parser.add_argument('-ckpt_filename', default=None)

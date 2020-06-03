@@ -181,7 +181,7 @@ if __name__ == '__main__':
     parser.add_argument('-train_dataset_dir', required=True)
     parser.add_argument('-train_dataset_subdir', required=True)
 
-    parser.add_argument('-style_image_path', default="./dataset/style/summeringiiwebsite.jpg")
+    parser.add_argument('-style_image_path', default="./dataset/style/andy_dixon_summering.jpg")
 
     parser.add_argument('-batch_size', default=8, type=int)
     parser.add_argument('-num_epochs', default=64, type=int)
