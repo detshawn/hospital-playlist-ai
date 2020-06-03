@@ -86,7 +86,6 @@ def main():
     # style image importing and pre-processing
     style = load_image(filename=style_image_path, size=None, scale=None)
     style_transform = transforms.Compose([
-        transforms.Resize(imsize),
         transforms.CenterCrop(imsize),
         # transforms.RandomCrop(imsize),
         transforms.ToTensor(),
@@ -95,6 +94,7 @@ def main():
     style = style_transform(style)
     save_image('./output/style_transformed.png', style)
     style = style.repeat(batch_size, 1, 1, 1).to(device)
+    exit(0)
 
     # check the size
     # print(f'train_dataset[0][0].size(): {train_dataset[0][0].size()}')
@@ -181,7 +181,7 @@ if __name__ == '__main__':
     parser.add_argument('-train_dataset_dir', required=True)
     parser.add_argument('-train_dataset_subdir', required=True)
 
-    parser.add_argument('-style_image_path', default="./dataset/style/andy_dixon_summering.jpg")
+    parser.add_argument('-style_image_path', default="./dataset/style/andy_dixon_summering.png")
 
     parser.add_argument('-batch_size', default=8, type=int)
     parser.add_argument('-num_epochs', default=64, type=int)
