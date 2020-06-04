@@ -34,6 +34,7 @@ def main():
 
     content_weight = args.content_weight
     style_weight = args.style_weight
+    num_style_segments = args.num_style_segments
     log_interval = args.log_interval
     log_dir = args.log_dir
     logger = Logger(log_dir)
@@ -85,16 +86,28 @@ def main():
 
     # style image importing and pre-processing
     style = load_image(filename=style_image_path, size=None, scale=None)
-    style_transform = transforms.Compose([
+    style_transform_default1 = transforms.Compose([
         transforms.Resize(imsize*4),
-        # transforms.CenterCrop(imsize),
+        transforms.FiveCrop(imsize)
+    ])
+    style_transform_default2 = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.mul(255))
+    ])
+    style_transform_extra = transforms.Compose([
+        transforms.Resize(imsize*4),
         transforms.RandomCrop(imsize),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
     ])
-    num_styles = 5
-    styles = [style_transform(style) for _ in range(num_styles)]
-    # save_image('./output/style_transformed.png', style)
+    temp_styles = style_transform_default1(style)
+    styles = [style_transform_default2(temp_styles[i]) for i in range(min([num_style_segments, 5]))]
+    if num_style_segments > 5:
+        styles.extend([style_transform_extra(style) for _ in range(num_style_segments-5)])
+    if not os.path.exists('./output'):
+        os.mkdir('./output')
+    for i in range(num_style_segments):
+        save_image(f'./output/style_segment{i}.png', styles[i])
     styles = [style.repeat(batch_size, 1, 1, 1).to(device) for style in styles]
 
     # check the size
@@ -190,7 +203,8 @@ if __name__ == '__main__':
     parser.add_argument('-initial_lr', default=1e-3, type=float)
     parser.add_argument('-content_weight', default=1e5, type=float)
     parser.add_argument('-style_weight', default=1e10, type=float)
-    
+    parser.add_argument('-num_style_segments', default=8, type=int)
+
     parser.add_argument('-log_interval', default=50, type=int)
     parser.add_argument('-log_dir', default='./log')
     parser.add_argument('-checkpoint_interval', default=500, type=int)
