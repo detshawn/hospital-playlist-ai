@@ -34,6 +34,7 @@ def main():
 
     content_weight = args.content_weight
     style_weight = args.style_weight
+    total_variation_weight = args.total_variation_weight
     num_style_segments = args.num_style_segments
     log_interval = args.log_interval
     log_dir = args.log_dir
@@ -124,6 +125,7 @@ def main():
         transformer.train()
         agg_content_loss = 0.
         agg_style_loss = 0.
+        agg_total_variation_loss = 0.
         count = 0
 
         for batch_id, (x, _) in enumerate(train_loader):
@@ -151,7 +153,12 @@ def main():
                 style_loss += mse_loss(gm_y, gm_s[:n_batch, :, :])
             style_loss *= style_weight
 
-            total_loss = content_loss + style_loss
+            total_variation_loss = total_variation_weight * (
+                torch.sum(torch.abs(y[:, :, :, :-1] - y[:, :, :, 1:])) +
+                torch.sum(torch.abs(y[:, :, :-1, :] - y[:, :, 1:, :]))
+            )
+
+            total_loss = content_loss + style_loss + total_variation_loss
 
             # backward
             total_loss.backward()
@@ -159,10 +166,12 @@ def main():
 
             agg_content_loss += content_loss.item()
             agg_style_loss += style_loss.item()
+            agg_total_variation_loss += total_variation_loss.item()
 
             if (batch_id + 1) % log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
                 meta = {'content_loss': content_loss.item(), 'style_loss': style_loss.item(),
-                        'total_loss': content_loss.item()+style_loss.item()}
+                        'total_variation_loss': total_variation_loss.item(),
+                        'total_loss': content_loss.item() + style_loss.item() + total_variation_loss.item() }
                 logger.scalars_summary(f'{tag}/train', meta, epoch * len(train_loader.dataset) + count + 1)
 
                 mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal: {:.6f}".format(
@@ -203,6 +212,7 @@ if __name__ == '__main__':
     parser.add_argument('-initial_lr', default=1e-3, type=float)
     parser.add_argument('-content_weight', default=1e5, type=float)
     parser.add_argument('-style_weight', default=1e10, type=float)
+    parser.add_argument('-total_variation_weight', default=1e4, type=float)
     parser.add_argument('-num_style_segments', default=8, type=int)
 
     parser.add_argument('-log_interval', default=50, type=int)
