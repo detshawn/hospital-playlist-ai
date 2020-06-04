@@ -83,7 +83,10 @@ def main():
     ])
     print(f'train dataset list: {glob.glob("/".join([train_dataset_dir, train_dataset_subdir]) + "/*")}')
     train_dataset = datasets.ImageFolder(train_dataset_dir, transform)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size)
+    train_loader = torch.utils.data.DataLoader(train_dataset,
+                                               batch_size=batch_size,
+                                               num_workers=8,
+                                               pin_memory=True)
 
     # style image importing and pre-processing
     style = load_image(filename=style_image_path, size=None, scale=None)
