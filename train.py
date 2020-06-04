@@ -203,7 +203,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-style_image_path', default="./dataset/style/andy_dixon_summering.png")
 
-    parser.add_argument('-batch_size', default=8, type=int)
+    parser.add_argument('-batch_size', default=16, type=int)
     parser.add_argument('-num_epochs', default=64, type=int)
     parser.add_argument('-initial_lr', default=1e-3, type=float)
     parser.add_argument('-content_weight', default=1e5, type=float)
