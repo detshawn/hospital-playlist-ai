@@ -163,11 +163,12 @@ def main():
                         'total_loss': content_loss.item() + style_loss.item() + total_variation_loss.item() }
                 logger.scalars_summary(f'{tag}/train', meta, epoch * len(train_loader.dataset) + count + 1)
 
-                mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal: {:.6f}".format(
+                mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal_variation: {:.6f}\ttotal: {:.6f}".format(
                     time.ctime(), epoch + 1, count, len(train_dataset),
                                   agg_content_loss / (batch_id + 1),
                                   agg_style_loss / (batch_id + 1),
-                                  (agg_content_loss + agg_style_loss) / (batch_id + 1)
+                                  agg_total_variation_loss / (batch_id + 1),
+                                  (agg_content_loss + agg_style_loss + agg_total_variation_loss) / (batch_id + 1)
                 )
                 print(mesg)
 
@@ -207,7 +208,7 @@ if __name__ == '__main__':
     parser.add_argument('-initial_lr', default=1e-3, type=float)
     parser.add_argument('-content_weight', default=1e5, type=float)
     parser.add_argument('-style_weight', default=1e10, type=float)
-    parser.add_argument('-total_variation_weight', default=1e4, type=float)
+    parser.add_argument('-total_variation_weight', default=1e2, type=float)
     parser.add_argument('-num_style_segments', default=8, type=int)
 
     parser.add_argument('-log_interval', default=50, type=int)
