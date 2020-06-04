@@ -15,6 +15,8 @@ import glob
 from model.model import TransformerNet, VGG16
 from utils import *
 
+from gdrive import upload
+
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,6 +43,7 @@ def main():
     logger = Logger(log_dir)
     checkpoint_interval = args.checkpoint_interval
     checkpoint_dir = args.checkpoint_dir
+    upload_by_epoch = args.upload_by_epoch
     defined_ckpt_filename = args.ckpt_filename
     def get_saved_ckpt_filename(_epoch, _batch_id):
         return "ckpt_epoch_" + str(_epoch) + "_batch_id_" + str(_batch_id + 1) + ".ckpt"
@@ -197,6 +200,12 @@ def main():
                 'loss': total_loss
                 }, ckpt_model_path)
 
+                if epoch + 1 % upload_by_epoch == 0:
+                    try:
+                        upload(ckpt_model_path)
+                    except:
+                        1
+
                 transformer.to(device).train()
 
 
@@ -224,6 +233,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-checkpoint_dir', default='./ckpts/')
     parser.add_argument('-ckpt_filename', default=None)
+    parser.add_argument('-upload_by_epoch', default=10, type=int)
 
     parser.add_argument('--transfer_learning', action='store_true')
 
