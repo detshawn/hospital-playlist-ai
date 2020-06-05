@@ -62,8 +62,7 @@ def main():
     ckpt_model_path = os.path.join(checkpoint_dir, defined_ckpt_filename)
     if transfer_learning:
         checkpoint = torch.load(ckpt_model_path, map_location=device)
-        trainer.model.load_state_dict(checkpoint['model_state_dict'])
-        trainer.eta.load_state_dict(checkpoint['eta_state_dict'])
+        trainer.load_state_dict(checkpoint['model_state_dict'])
         transfer_learning_epoch = checkpoint['epoch']
     else:
         transfer_learning_epoch = 0
@@ -163,15 +162,14 @@ def main():
             if checkpoint_dir is not None and (batch_id + 1) % checkpoint_interval == 0:
                 trainer.eval().cpu()
                 saved_ckpt_filename = get_saved_ckpt_filename(epoch, batch_id)
-                print(str(epoch), "th checkpoint is saved!")
                 ckpt_model_path = os.path.join(checkpoint_dir, saved_ckpt_filename)
                 torch.save({
                 'epoch': epoch,
-                'model_state_dict': trainer.model.state_dict(),
+                'model_state_dict': trainer.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'eta_state_dict': trainer.eta.state_dict(),
                 'loss': total_loss
                 }, ckpt_model_path)
+                print(str(epoch), "th checkpoint is saved!")
 
                 if epoch + 1 % upload_by_epoch == 0:
                     try:
