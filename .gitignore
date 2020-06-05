@@ -1,4 +1,7 @@
 *.iml
 *.xml
 *.pyc
-
+output/*
+.env
+*.local
+*.ckpt
