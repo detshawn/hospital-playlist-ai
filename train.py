@@ -96,6 +96,8 @@ def main():
         transforms.Lambda(lambda x: x.mul(255))
     ])
     style = style_transform(style)
+    if not os.path.exists('./output'):
+        os.mkdir('./output')
     save_image('./output/style_transformed.png', style)
     style = style.repeat(batch_size, 1, 1, 1).to(device)
 
