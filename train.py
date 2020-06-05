@@ -12,6 +12,7 @@ import numpy as np
 import time
 import glob
 
+from model.learnable_loss import *
 from model.transformer_net import TransformerNet, VGG16
 from utils import *
 
@@ -57,19 +58,22 @@ def main():
 
     # model and optimizer construction
     transformer = TransformerNet()
+    trainer = LearnableLoss(model=transformer,
+                            loss_names=['content', 'style', 'total_variation'],
+                            device=device)
     vgg = VGG16(requires_grad=False).to(device)
 
     # transfer learning set-up and existing model loading (is it first-time or continued learning?)
     ckpt_model_path = os.path.join(checkpoint_dir, defined_ckpt_filename)
     if transfer_learning:
         checkpoint = torch.load(ckpt_model_path, map_location=device)
-        transformer.load_state_dict(checkpoint['model_state_dict'])
+        trainer.model.load_state_dict(checkpoint['model_state_dict'])
+        trainer.eta.load_state_dict(checkpoint['eta_state_dict'])
         transfer_learning_epoch = checkpoint['epoch']
     else:
         transfer_learning_epoch = 0
 
-    transformer.to(device)
-
+    trainer.to(device)
     optimizer = torch.optim.Adam(transformer.parameters(), initial_lr)
     mse_loss = nn.MSELoss()
 
@@ -111,7 +115,7 @@ def main():
 
     # training
     for epoch in range(transfer_learning_epoch, num_epochs):
-        transformer.train()
+        trainer.train()
         agg_content_loss = 0.
         agg_style_loss = 0.
         agg_total_variation_loss = 0.
@@ -172,13 +176,13 @@ def main():
                 print(mesg)
 
             if checkpoint_dir is not None and (batch_id + 1) % checkpoint_interval == 0:
-                transformer.eval().cpu()
+                trainer.eval().cpu()
                 saved_ckpt_filename = get_saved_ckpt_filename(epoch, batch_id)
                 print(str(epoch), "th checkpoint is saved!")
                 ckpt_model_path = os.path.join(checkpoint_dir, saved_ckpt_filename)
                 torch.save({
                 'epoch': epoch,
-                'model_state_dict': transformer.state_dict(),
+                'model_state_dict': trainer.model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': total_loss
                 }, ckpt_model_path)
@@ -189,7 +193,7 @@ def main():
                     except:
                         1
 
-                transformer.to(device).train()
+                trainer.to(device).train()
 
 
 if __name__ == '__main__':

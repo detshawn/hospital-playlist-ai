@@ -30,14 +30,6 @@ def post_process_image(data):
     return img
 
 
-def gram_matrix(y):
-    (b, ch, h, w) = y.size()
-    features = y.view(b, ch, w * h)
-    features_t = features.transpose(1, 2)
-    gram = features.bmm(features_t) / (ch * h * w)  # b x ch x ch
-    return gram
-
-
 def normalize_batch(batch):
     # normalize using imagenet mean and std
     mean = batch.new_tensor([0.485, 0.456, 0.406]).view(-1, 1, 1)
