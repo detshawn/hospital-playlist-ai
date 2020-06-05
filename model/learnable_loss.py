@@ -50,9 +50,9 @@ class LearnableLoss(nn.Module):
         total_loss = total_loss.sum()
         # print(f'   loss_tensor: {loss_tensor}, total_loss: {total_loss}')
 
-        meta = {}
+        meta = {'loss': {}, 'eta': {}}
         for l, n, e in zip(losses, self.loss_names, self.eta.detach().cpu().numpy()):
-            meta[n+'_loss'] = l.item()
-            meta[n+'_eta'] = e
-        meta['total_loss'] = total_loss
+            meta['loss'][n] = l.item()
+            meta['eta'][n] = e
+        meta['loss']['total'] = total_loss
         return total_loss, meta

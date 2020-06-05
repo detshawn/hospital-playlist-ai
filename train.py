@@ -143,12 +143,13 @@ def main():
             total_loss.backward()
             optimizer.step()
 
-            agg_content_loss += meta['content_loss']
-            agg_style_loss += meta['style_loss']
-            agg_total_variation_loss += meta['total_variation_loss']
+            agg_content_loss += meta['loss']['content']
+            agg_style_loss += meta['loss']['style']
+            agg_total_variation_loss += meta['loss']['total_variation']
 
             if (batch_id + 1) % log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
-                logger.scalars_summary(f'{tag}/train', meta, epoch * len(train_loader.dataset) + count + 1)
+                logger.scalars_summary(f'{tag}/train', meta['loss'], epoch * len(train_loader.dataset) + count + 1)
+                logger.scalars_summary(f'{tag}/train_eta', meta['eta'], epoch * len(train_loader.dataset) + count + 1)
 
                 mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal_variation: {:.6f}\ttotal: {:.6f}".format(
                     time.ctime(), epoch + 1, count, len(train_dataset),
