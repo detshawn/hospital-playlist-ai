@@ -69,7 +69,7 @@ def main():
         transfer_learning_epoch = 0
 
     trainer.to(device)
-    optimizer = torch.optim.Adam(transformer.parameters(), initial_lr)
+    optimizer = torch.optim.Adam(trainer.parameters(), initial_lr)
 
     # desired size of the output image
     imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
