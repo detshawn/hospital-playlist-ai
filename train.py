@@ -124,7 +124,7 @@ def main():
 
             # forward
             x = x.to(device)
-            y = transformer(x)
+            y = trainer(x)
 
             y = normalize_batch(y)
             x = normalize_batch(x)
