@@ -75,7 +75,6 @@ def main():
 
     trainer.to(device)
     optimizer = torch.optim.Adam(transformer.parameters(), initial_lr)
-    mse_loss = nn.MSELoss()
 
     # desired size of the output image
     imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
@@ -137,41 +136,29 @@ def main():
             features_x = vgg(x)
 
             # losses
-            content_loss = content_weight * mse_loss(features_y.relu2_2, features_x.relu2_2)
+            content_loss = get_content_loss(features_y.relu2_2, features_x.relu2_2)
+            style_loss = get_style_loss(features_y, gram_style, n_batch)
+            total_variation_loss = get_total_variation_loss(y)
 
-            style_loss = 0.
-            for ft_y, gm_s in zip(features_y, gram_style):
-                gm_y = gram_matrix(ft_y)
-                style_loss += mse_loss(gm_y, gm_s[:n_batch, :, :])
-            style_loss *= style_weight
-
-            total_variation_loss = total_variation_weight * (
-                torch.sum(torch.abs(y[:, :, :, :-1] - y[:, :, :, 1:])) +
-                torch.sum(torch.abs(y[:, :, :-1, :] - y[:, :, 1:, :]))
-            )
-
-            total_loss = content_loss + style_loss + total_variation_loss
+            total_loss, meta = trainer.get_total_loss([content_loss, style_loss, total_variation_loss])
 
             # backward
             total_loss.backward()
             optimizer.step()
 
-            agg_content_loss += content_loss.item()
-            agg_style_loss += style_loss.item()
-            agg_total_variation_loss += total_variation_loss.item()
+            agg_content_loss += meta['content_loss']
+            agg_style_loss += meta['style_loss']
+            agg_total_variation_loss += meta['total_variation_loss']
 
             if (batch_id + 1) % log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
-                meta = {'content_loss': content_loss.item(), 'style_loss': style_loss.item(),
-                        'total_variation_loss': total_variation_loss.item(),
-                        'total_loss': content_loss.item() + style_loss.item() + total_variation_loss.item() }
                 logger.scalars_summary(f'{tag}/train', meta, epoch * len(train_loader.dataset) + count + 1)
 
                 mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal_variation: {:.6f}\ttotal: {:.6f}".format(
                     time.ctime(), epoch + 1, count, len(train_dataset),
-                                  agg_content_loss / (batch_id + 1),
-                                  agg_style_loss / (batch_id + 1),
-                                  agg_total_variation_loss / (batch_id + 1),
-                                  (agg_content_loss + agg_style_loss + agg_total_variation_loss) / (batch_id + 1)
+                    agg_content_loss / (batch_id + 1),
+                    agg_style_loss / (batch_id + 1),
+                    agg_total_variation_loss / (batch_id + 1),
+                    (agg_content_loss + agg_style_loss + agg_total_variation_loss) / (batch_id + 1)
                 )
                 print(mesg)
 
@@ -184,6 +171,7 @@ def main():
                 'epoch': epoch,
                 'model_state_dict': trainer.model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
+                'eta_state_dict': trainer.eta.state_dict(),
                 'loss': total_loss
                 }, ckpt_model_path)
 
