@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import re
 import cv2
 
-from model.model import TransformerNet, VGG16
+from model.transformer_net import TransformerNet, VGG16
 from utils import *
 
 

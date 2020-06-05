@@ -12,7 +12,7 @@ import numpy as np
 import time
 import glob
 
-from model.model import TransformerNet, VGG16
+from model.transformer_net import TransformerNet, VGG16
 from utils import *
 
 from gdrive import upload
