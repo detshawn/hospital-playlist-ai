@@ -2,8 +2,6 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 
-import torch
-import torch.nn as nn
 import os
 from torchvision import datasets
 import torchvision.transforms as transforms
@@ -35,9 +33,6 @@ def main():
     num_epochs = args.num_epochs
     initial_lr = args.initial_lr
 
-    content_weight = args.content_weight
-    style_weight = args.style_weight
-    total_variation_weight = args.total_variation_weight
     log_interval = args.log_interval
     log_dir = args.log_dir
     logger = Logger(log_dir)
@@ -197,9 +192,6 @@ if __name__ == '__main__':
     parser.add_argument('-batch_size', default=8, type=int)
     parser.add_argument('-num_epochs', default=64, type=int)
     parser.add_argument('-initial_lr', default=1e-3, type=float)
-    parser.add_argument('-content_weight', default=1e5, type=float)
-    parser.add_argument('-style_weight', default=1e10, type=float)
-    parser.add_argument('-total_variation_weight', default=1e2, type=float)
 
     parser.add_argument('-log_interval', default=50, type=int)
     parser.add_argument('-log_dir', default='./log')
