@@ -162,6 +162,8 @@ def main():
             if checkpoint_dir is not None and (batch_id + 1) % checkpoint_interval == 0:
                 trainer.eval().cpu()
                 saved_ckpt_filename = get_saved_ckpt_filename(epoch, batch_id)
+                if not os.path.exists(checkpoint_dir):
+                    os.mkdir(checkpoint_dir)
                 ckpt_model_path = os.path.join(checkpoint_dir, saved_ckpt_filename)
                 torch.save({
                 'epoch': epoch,
