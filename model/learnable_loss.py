@@ -27,7 +27,7 @@ def get_style_loss(features_y, gram_style, n_batch):
 
 def get_total_variation_loss(y):
     return (torch.sum(torch.abs(y[:, :, :, :-1] - y[:, :, :, 1:])) +\
-        torch.sum(torch.abs(y[:, :, :-1, :] - y[:, :, 1:, :]))) * 1E-4
+        torch.sum(torch.abs(y[:, :, :-1, :] - y[:, :, 1:, :]))) * 1E-6
 
 
 class LearnableLoss(nn.Module):
