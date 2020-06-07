@@ -47,7 +47,7 @@ def main():
         content_image = content_image.unsqueeze(0).to(device)
 
         with torch.no_grad():
-            model_loader = LearnableLoss(TransformerNet(), [], device)
+            model_loader = LearnableLoss(TransformerNet(), ['null'+str(i) for i in range(3)], device)
 
             ckpt_model_path = os.path.join(checkpoint_dir, ckpt_filename)
             checkpoint = torch.load(ckpt_model_path, map_location=device)
@@ -57,7 +57,7 @@ def main():
                 if re.search(r'in\d+\.running_(mean|var)$', k):
                     del checkpoint[k]
 
-            model_loader.model.load_state_dict(checkpoint['model_state_dict'])
+            model_loader.load_state_dict(checkpoint['model_state_dict'])
             model_loader.to(device)
             style_model = model_loader.model
 
@@ -95,7 +95,7 @@ def main():
                 if re.search(r'in\d+\.running_(mean|var)$', k):
                     del checkpoint[k]
 
-            model_loader.model.load_state_dict(checkpoint['model_state_dict'])
+            model_loader.load_state_dict(checkpoint['model_state_dict'])
             model_loader.to(device)
             style_model = model_loader.model
 
