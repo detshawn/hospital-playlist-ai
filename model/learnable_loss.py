@@ -22,12 +22,12 @@ def get_style_loss(features_y, gram_style, n_batch):
     for ft_y, gm_s in zip(features_y, gram_style):
         gm_y = gram_matrix(ft_y)
         loss += MSE_LOSS(gm_y, gm_s[:n_batch, :, :])
-    return loss
+    return loss * 1E4
 
 
 def get_total_variation_loss(y):
     return (torch.sum(torch.abs(y[:, :, :, :-1] - y[:, :, :, 1:])) +\
-        torch.sum(torch.abs(y[:, :, :-1, :] - y[:, :, 1:, :]))) * 1E-8
+        torch.sum(torch.abs(y[:, :, :-1, :] - y[:, :, 1:, :]))) * 1E-4
 
 
 class LearnableLoss(nn.Module):
