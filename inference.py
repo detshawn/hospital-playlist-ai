@@ -12,6 +12,7 @@ import re
 import cv2
 
 from model.transformer_net import TransformerNet, VGG16
+from model.learnable_loss import LearnableLoss
 from utils import *
 
 
@@ -46,7 +47,7 @@ def main():
         content_image = content_image.unsqueeze(0).to(device)
 
         with torch.no_grad():
-            style_model = TransformerNet()
+            model_loader = LearnableLoss(TransformerNet(), [], device)
 
             ckpt_model_path = os.path.join(checkpoint_dir, ckpt_filename)
             checkpoint = torch.load(ckpt_model_path, map_location=device)
@@ -56,8 +57,9 @@ def main():
                 if re.search(r'in\d+\.running_(mean|var)$', k):
                     del checkpoint[k]
 
-            style_model.load_state_dict(checkpoint['model_state_dict'])
-            style_model.to(device)
+            model_loader.model.load_state_dict(checkpoint['model_state_dict'])
+            model_loader.to(device)
+            style_model = model_loader.model
 
             output = style_model(content_image).cpu()
 
@@ -83,7 +85,7 @@ def main():
         cv2.destroyAllWindows()
 
         with torch.no_grad():
-            style_model = TransformerNet()
+            model_loader = LearnableLoss(TransformerNet(), [], device)
 
             ckpt_model_path = os.path.join(checkpoint_dir, ckpt_filename) 
             checkpoint = torch.load(ckpt_model_path, map_location=device)
@@ -93,8 +95,9 @@ def main():
                 if re.search(r'in\d+\.running_(mean|var)$', k):
                     del checkpoint[k]
 
-            style_model.load_state_dict(checkpoint['model_state_dict'])
-            style_model.to(device)
+            model_loader.model.load_state_dict(checkpoint['model_state_dict'])
+            model_loader.to(device)
+            style_model = model_loader.model
 
             cap = cv2.VideoCapture(content_video_path)
 
