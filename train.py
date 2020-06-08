@@ -88,35 +88,32 @@ def main():
                                                pin_memory=True)
 
     # style image importing and pre-processing
-    styles = []
-    if os.path.isdir(style_image_path):
-        paths = glob.glob(os.path.join(style_image_path, f'*'))
-        for path in paths:
-            styles.append(load_image(filename=path, size=None, scale=None))
-    else:
-        styles.append(load_image(filename=style_image_path, size=None, scale=None))
+    if not os.path.exists('./output'):
+        os.mkdir('./output')
     style_transform = transforms.Compose([
         transforms.Resize(imsize*4),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
     ])
-    styles = [style_transform(style) for style in styles]
-    if not os.path.exists('./output'):
-        os.mkdir('./output')
-    for i, style in enumerate(styles):
-        save_image(f'./output/style_transformed[{i}].png', style)
-    styles = [style.repeat(batch_size, 1, 1, 1).to(device) for style in styles]
-
-    # check the size
-    # print(f'train_dataset[0][0].size(): {train_dataset[0][0].size()}')
-    # print(f'style[0].size(): {style[0].size()}')
-
-    # pre-calculating gram_style
     gram_styles = []
-    for style in styles:
-        features_style = vgg(normalize_batch(style))
+    if os.path.isdir(style_image_path):
+        paths = glob.glob(os.path.join(style_image_path, f'*'))
+    else:
+        paths = [style_image_path]
+    for path in paths:
+        style = load_image(filename=path, size=None, scale=None)
+        style_t = style_transform(style)
+        save_image(f'./output/style_transformed[{i}].png', style_t)
+        style_t = style_t.repeat(batch_size, 1, 1, 1).to(device)
+
+        # check the size
+        # print(f'train_dataset[0][0].size(): {train_dataset[0][0].size()}')
+        # print(f'style_t[0].size(): {style_t[0].size()}')
+
+        # pre-calculating gram_style
+        features_style = vgg(normalize_batch(style_t))
         gram_styles.append([gram_matrix(y) for y in features_style])
-        del features_style
+        del style_t, features_style
 
     # training
     for epoch in range(transfer_learning_epoch, num_epochs):
