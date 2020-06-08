@@ -60,7 +60,7 @@ def get_credentials():
     store = oauth2client.file.Storage(credential_path)
     credentials = store.get()
     if not credentials or credentials.invalid:
-        if os.path.exists(CLIENT_SECRET_FILE):
+        if not os.path.exists(CLIENT_SECRET_FILE):
             print(f'Error: The client secret file {CLIENT_SECRET_FILE} does not exists!')
             return None
         flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
