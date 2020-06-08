@@ -88,25 +88,32 @@ def main():
                                                pin_memory=True)
 
     # style image importing and pre-processing
-    style = load_image(filename=style_image_path, size=None, scale=None)
+    styles = []
+    if os.path.isdir(style_image_path):
+        paths = glob.glob(os.path.join(style_image_path, f'*'))
+        for path in paths:
+            styles.append(load_image(filename=path, size=None, scale=None))
+    else:
+        styles.append(load_image(filename=style_image_path, size=None, scale=None))
     style_transform = transforms.Compose([
         transforms.Resize(imsize*4),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
     ])
-    style = style_transform(style)
+    styles = [style_transform(style) for style in styles]
     if not os.path.exists('./output'):
         os.mkdir('./output')
-    save_image('./output/style_transformed.png', style)
-    style = style.repeat(batch_size, 1, 1, 1).to(device)
+    for i, style in enumerate(styles):
+        save_image(f'./output/style_transformed[{i}].png', style)
+    styles = [style.repeat(batch_size, 1, 1, 1).to(device) for style in styles]
 
     # check the size
     # print(f'train_dataset[0][0].size(): {train_dataset[0][0].size()}')
     # print(f'style[0].size(): {style[0].size()}')
 
     # pre-calculating gram_style
-    features_style = vgg(normalize_batch(style))
-    gram_style = [gram_matrix(y) for y in features_style]
+    features_styles = [vgg(normalize_batch(style)) for style in styles]
+    gram_styles = [[gram_matrix(y) for y in features_style] for features_style in features_styles]
 
     # training
     for epoch in range(transfer_learning_epoch, num_epochs):
@@ -115,6 +122,8 @@ def main():
         agg_style_loss = 0.
         agg_total_variation_loss = 0.
         count = 0
+
+        gram_style_itr = iter(gram_styles)
 
         for batch_id, (x, _) in enumerate(train_loader):
             n_batch = len(x)
@@ -132,6 +141,12 @@ def main():
             features_x = vgg(x)
 
             # losses
+            try:
+                gram_style = next(gram_style_itr)
+            except StopIteration:
+                gram_style_itr = iter(gram_styles)
+                gram_style = next(gram_style_itr)
+
             content_loss = get_content_loss(features_y.relu2_2, features_x.relu2_2)
             style_loss = get_style_loss(features_y, gram_style, n_batch)
             total_variation_loss = get_total_variation_loss(y)
@@ -190,7 +205,7 @@ if __name__ == '__main__':
     parser.add_argument('-train_dataset_dir', required=True)
     parser.add_argument('-train_dataset_subdir', required=True)
 
-    parser.add_argument('-style_image_path', default="./dataset/style/andy_dixon_summering.png")
+    parser.add_argument('-style_image_path', default="./dataset/style")
 
     parser.add_argument('-batch_size', default=8, type=int)
     parser.add_argument('-num_epochs', default=64, type=int)
