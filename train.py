@@ -2,8 +2,6 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 
-import torch
-import torch.nn as nn
 import os
 from torchvision import datasets
 import torchvision.transforms as transforms
@@ -12,7 +10,8 @@ import numpy as np
 import time
 import glob
 
-from model.model import TransformerNet, VGG16
+from model.learnable_loss import *
+from model.transformer_net import TransformerNet, VGG16
 from utils import *
 
 from gdrive import upload
@@ -34,10 +33,6 @@ def main():
     num_epochs = args.num_epochs
     initial_lr = args.initial_lr
 
-    content_weight = args.content_weight
-    style_weight = args.style_weight
-    total_variation_weight = args.total_variation_weight
-    num_style_segments = args.num_style_segments
     log_interval = args.log_interval
     log_dir = args.log_dir
     logger = Logger(log_dir)
@@ -58,21 +53,22 @@ def main():
 
     # model and optimizer construction
     transformer = TransformerNet()
+    trainer = LearnableLoss(model=transformer,
+                            loss_names=['content', 'style', 'total_variation'],
+                            device=device)
     vgg = VGG16(requires_grad=False).to(device)
 
     # transfer learning set-up and existing model loading (is it first-time or continued learning?)
     ckpt_model_path = os.path.join(checkpoint_dir, defined_ckpt_filename)
     if transfer_learning:
         checkpoint = torch.load(ckpt_model_path, map_location=device)
-        transformer.load_state_dict(checkpoint['model_state_dict'])
+        trainer.load_state_dict(checkpoint['model_state_dict'])
         transfer_learning_epoch = checkpoint['epoch']
     else:
         transfer_learning_epoch = 0
 
-    transformer.to(device)
-
-    optimizer = torch.optim.Adam(transformer.parameters(), initial_lr)
-    mse_loss = nn.MSELoss()
+    trainer.to(device)
+    optimizer = torch.optim.Adam(trainer.parameters(), initial_lr)
 
     # desired size of the output image
     imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
@@ -99,6 +95,8 @@ def main():
         transforms.Lambda(lambda x: x.mul(255))
     ])
     style = style_transform(style)
+    if not os.path.exists('./output'):
+        os.mkdir('./output')
     save_image('./output/style_transformed.png', style)
     style = style.repeat(batch_size, 1, 1, 1).to(device)
 
@@ -112,7 +110,7 @@ def main():
 
     # training
     for epoch in range(transfer_learning_epoch, num_epochs):
-        transformer.train()
+        trainer.train()
         agg_content_loss = 0.
         agg_style_loss = 0.
         agg_total_variation_loss = 0.
@@ -125,7 +123,7 @@ def main():
 
             # forward
             x = x.to(device)
-            y = transformer(x)
+            y = trainer(x)
 
             y = normalize_batch(y)
             x = normalize_batch(x)
@@ -134,55 +132,46 @@ def main():
             features_x = vgg(x)
 
             # losses
-            content_loss = content_weight * mse_loss(features_y.relu2_2, features_x.relu2_2)
+            content_loss = get_content_loss(features_y.relu2_2, features_x.relu2_2)
+            style_loss = get_style_loss(features_y, gram_style, n_batch)
+            total_variation_loss = get_total_variation_loss(y)
 
-            style_loss = 0.
-            for ft_y, gm_s in zip(features_y, gram_style):
-                gm_y = gram_matrix(ft_y)
-                style_loss += mse_loss(gm_y, gm_s[:n_batch, :, :])
-            style_loss *= style_weight
-
-            total_variation_loss = total_variation_weight * (
-                torch.sum(torch.abs(y[:, :, :, :-1] - y[:, :, :, 1:])) +
-                torch.sum(torch.abs(y[:, :, :-1, :] - y[:, :, 1:, :]))
-            )
-
-            total_loss = content_loss + style_loss + total_variation_loss
+            total_loss, meta = trainer.get_total_loss([content_loss, style_loss, total_variation_loss])
 
             # backward
             total_loss.backward()
             optimizer.step()
 
-            agg_content_loss += content_loss.item()
-            agg_style_loss += style_loss.item()
-            agg_total_variation_loss += total_variation_loss.item()
+            agg_content_loss += meta['loss']['content']
+            agg_style_loss += meta['loss']['style']
+            agg_total_variation_loss += meta['loss']['total_variation']
 
             if (batch_id + 1) % log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
-                meta = {'content_loss': content_loss.item(), 'style_loss': style_loss.item(),
-                        'total_variation_loss': total_variation_loss.item(),
-                        'total_loss': content_loss.item() + style_loss.item() + total_variation_loss.item() }
-                logger.scalars_summary(f'{tag}/train', meta, epoch * len(train_loader.dataset) + count + 1)
+                logger.scalars_summary(f'{tag}/train', meta['loss'], epoch * len(train_loader.dataset) + count + 1)
+                logger.scalars_summary(f'{tag}/train_eta', meta['eta'], epoch * len(train_loader.dataset) + count + 1)
 
                 mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal_variation: {:.6f}\ttotal: {:.6f}".format(
                     time.ctime(), epoch + 1, count, len(train_dataset),
-                                  agg_content_loss / (batch_id + 1),
-                                  agg_style_loss / (batch_id + 1),
-                                  agg_total_variation_loss / (batch_id + 1),
-                                  (agg_content_loss + agg_style_loss + agg_total_variation_loss) / (batch_id + 1)
+                    agg_content_loss / (batch_id + 1),
+                    agg_style_loss / (batch_id + 1),
+                    agg_total_variation_loss / (batch_id + 1),
+                    (agg_content_loss + agg_style_loss + agg_total_variation_loss) / (batch_id + 1)
                 )
                 print(mesg)
 
             if checkpoint_dir is not None and (batch_id + 1) % checkpoint_interval == 0:
-                transformer.eval().cpu()
+                trainer.eval().cpu()
                 saved_ckpt_filename = get_saved_ckpt_filename(epoch, batch_id)
-                print(str(epoch), "th checkpoint is saved!")
+                if not os.path.exists(checkpoint_dir):
+                    os.mkdir(checkpoint_dir)
                 ckpt_model_path = os.path.join(checkpoint_dir, saved_ckpt_filename)
                 torch.save({
                 'epoch': epoch,
-                'model_state_dict': transformer.state_dict(),
+                'model_state_dict': trainer.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': total_loss
                 }, ckpt_model_path)
+                print(str(epoch), "th checkpoint is saved!")
 
                 if epoch + 1 % upload_by_epoch == 0:
                     try:
@@ -190,7 +179,7 @@ def main():
                     except:
                         1
 
-                transformer.to(device).train()
+                trainer.to(device).train()
 
 
 if __name__ == '__main__':
@@ -203,13 +192,9 @@ if __name__ == '__main__':
 
     parser.add_argument('-style_image_path', default="./dataset/style/andy_dixon_summering.png")
 
-    parser.add_argument('-batch_size', default=16, type=int)
+    parser.add_argument('-batch_size', default=8, type=int)
     parser.add_argument('-num_epochs', default=64, type=int)
     parser.add_argument('-initial_lr', default=1e-3, type=float)
-    parser.add_argument('-content_weight', default=1e5, type=float)
-    parser.add_argument('-style_weight', default=1e10, type=float)
-    parser.add_argument('-total_variation_weight', default=1e2, type=float)
-    parser.add_argument('-num_style_segments', default=8, type=int)
 
     parser.add_argument('-log_interval', default=50, type=int)
     parser.add_argument('-log_dir', default='./log')

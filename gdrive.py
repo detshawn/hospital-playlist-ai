@@ -10,13 +10,19 @@ from mimetypes import MimeTypes
 try:
     from googleapiclient.errors import HttpError
     from apiclient import discovery
-    import oauth2client
     from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-    from oauth2client import file, client, tools
 except ImportError:
-    print('goole-api-python-client is not installed. Try:')
+    print('google-api-python-client is not installed. Try:')
     print('sudo pip install --upgrade google-api-python-client')
     sys.exit(1)
+try:
+    import oauth2client
+    from oauth2client import file, client, tools
+except ImportError:
+    print('oauth2client is not installed. Try:')
+    print('sudo pip install --upgrade oauth2client')
+    sys.exit(1)
+
 import sys
 
 
