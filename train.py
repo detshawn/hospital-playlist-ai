@@ -123,7 +123,8 @@ def main():
         agg_total_variation_loss = 0.
         count = 0
 
-        gram_style_itr = iter(gram_styles)
+        ps = np.random.permutation(len(gram_styles))
+        gram_style_itr = iter([gram_styles[p] for p in ps])
 
         for batch_id, (x, _) in enumerate(train_loader):
             n_batch = len(x)
@@ -144,7 +145,8 @@ def main():
             try:
                 gram_style = next(gram_style_itr)
             except StopIteration:
-                gram_style_itr = iter(gram_styles)
+                ps = np.random.permutation(len(gram_styles))
+                gram_style_itr = iter([gram_styles[p] for p in ps])
                 gram_style = next(gram_style_itr)
 
             content_loss = get_content_loss(features_y.relu2_2, features_x.relu2_2)
