@@ -95,13 +95,18 @@ def main():
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
     ])
+
+    # pre-calculating gram_style
     gram_styles = []
     if os.path.isdir(style_image_path):
         paths = glob.glob(os.path.join(style_image_path, f'*'))
     else:
         paths = [style_image_path]
-    for path in paths:
+    for i, path in enumerate(paths):
+        # import the image
         style = load_image(filename=path, size=None, scale=None)
+
+        # transform the image into a tensor
         style_t = style_transform(style)
         save_image(f'./output/style_transformed[{i}].png', style_t)
         style_t = style_t.repeat(batch_size, 1, 1, 1).to(device)
@@ -110,9 +115,10 @@ def main():
         # print(f'train_dataset[0][0].size(): {train_dataset[0][0].size()}')
         # print(f'style_t[0].size(): {style_t[0].size()}')
 
-        # pre-calculating gram_style
+        # forward propagation of pre-trained net and derivation of a Gram matrix
         features_style = vgg(normalize_batch(style_t))
         gram_styles.append([gram_matrix(y) for y in features_style])
+
         del style_t, features_style
 
     # training
