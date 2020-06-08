@@ -165,7 +165,8 @@ def main():
             total_loss.backward()
             optimizer.step()
 
-            del content_loss, style_loss, total_variation_loss
+            del x, y, features_x, features_y
+            del content_loss, style_loss, total_variation_loss, total_loss
 
             agg_content_loss += meta['loss']['content']
             agg_style_loss += meta['loss']['style']
@@ -194,7 +195,7 @@ def main():
                 'epoch': epoch,
                 'model_state_dict': trainer.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'loss': total_loss
+                'loss': meta['loss']['total']
                 }, ckpt_model_path)
                 print(str(epoch), "th checkpoint is saved!")
 
@@ -205,8 +206,6 @@ def main():
                         1
 
                 trainer.to(device).train()
-
-            del total_loss
 
 
 if __name__ == '__main__':
