@@ -112,8 +112,11 @@ def main():
     # print(f'style[0].size(): {style[0].size()}')
 
     # pre-calculating gram_style
-    features_styles = [vgg(normalize_batch(style)) for style in styles]
-    gram_styles = [[gram_matrix(y) for y in features_style] for features_style in features_styles]
+    gram_styles = []
+    for style in styles:
+        features_style = vgg(normalize_batch(style))
+        gram_styles.append([gram_matrix(y) for y in features_style])
+        del features_style
 
     # training
     for epoch in range(transfer_learning_epoch, num_epochs):
@@ -159,6 +162,8 @@ def main():
             total_loss.backward()
             optimizer.step()
 
+            del content_loss, style_loss, total_variation_loss
+
             agg_content_loss += meta['loss']['content']
             agg_style_loss += meta['loss']['style']
             agg_total_variation_loss += meta['loss']['total_variation']
@@ -197,6 +202,8 @@ def main():
                         1
 
                 trainer.to(device).train()
+
+            del total_loss
 
 
 if __name__ == '__main__':
