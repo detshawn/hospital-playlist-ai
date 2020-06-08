@@ -58,18 +58,6 @@ def main():
                             device=device)
     vgg = VGG16(requires_grad=False).to(device)
 
-    # transfer learning set-up and existing model loading (is it first-time or continued learning?)
-    ckpt_model_path = os.path.join(checkpoint_dir, defined_ckpt_filename)
-    if transfer_learning:
-        checkpoint = torch.load(ckpt_model_path, map_location=device)
-        trainer.load_state_dict(checkpoint['model_state_dict'])
-        transfer_learning_epoch = checkpoint['epoch']
-    else:
-        transfer_learning_epoch = 0
-
-    trainer.to(device)
-    optimizer = torch.optim.Adam(trainer.parameters(), initial_lr)
-
     # desired size of the output image
     imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
 
@@ -120,6 +108,18 @@ def main():
         gram_styles.append([gram_matrix(y) for y in features_style])
 
         del style_t, features_style
+
+    # transfer learning set-up and existing model loading (is it first-time or continued learning?)
+    ckpt_model_path = os.path.join(checkpoint_dir, defined_ckpt_filename)
+    if transfer_learning:
+        checkpoint = torch.load(ckpt_model_path, map_location=device)
+        trainer.load_state_dict(checkpoint['model_state_dict'])
+        transfer_learning_epoch = checkpoint['epoch']
+    else:
+        transfer_learning_epoch = 0
+
+    trainer.to(device)
+    optimizer = torch.optim.Adam(trainer.parameters(), initial_lr)
 
     # training
     for epoch in range(transfer_learning_epoch, num_epochs):
