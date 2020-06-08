@@ -48,7 +48,6 @@ CLIENT_SECRET_FILE = 'client_id.json'
 APPLICATION_NAME = 'GDrive'
 
 
-
 def get_credentials():
 
     #home_dir = os.path.expanduser('~')
@@ -61,6 +60,9 @@ def get_credentials():
     store = oauth2client.file.Storage(credential_path)
     credentials = store.get()
     if not credentials or credentials.invalid:
+        if os.path.exists(CLIENT_SECRET_FILE):
+            print(f'Error: The client secret file {CLIENT_SECRET_FILE} does not exists!')
+            return None
         flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
         #flow.user_agent = APPLICATION_NAME
         # if flags:
@@ -78,6 +80,10 @@ def get_credentials():
 def upload(path, parent_id=None):
     mime = MimeTypes()
     credentials = get_credentials()
+    if credentials is None:
+        print(f'Error: upload({path}) fails as the credentials has not been properly acquired!')
+        return
+
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('drive', 'v3', http=http)
 
@@ -110,6 +116,10 @@ def share(file_id, email):
             print(response.get('id'))
 
     credentials = get_credentials()
+    if credentials is None:
+        print(f'Error: share({file_id}, {email}) fails as the credentials has not been properly acquired!')
+        return
+
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('drive', 'v3', http=http)
     batch = service.new_batch_http_request(callback=callback)
@@ -137,6 +147,7 @@ def listfiles():
         for item in items:
             print('{0} ({1})'.format(item['name'].encode('utf-8'), item['id']))
         print('Total=', len(items))
+
 
 def delete(fileid):
     service.files().delete(fileId=fileid).execute()
@@ -189,6 +200,7 @@ def createfolder(folder, recursive=False):
                                           fields='id').execute()
         print(file.get('id'))
 
+
 if __name__ == '__main__':
     credentials = get_credentials()
     http = credentials.authorize(httplib2.Http())
@@ -211,7 +223,7 @@ if __name__ == '__main__':
     elif method == 'download':
         download(sys.argv[2], sys.argv[3])
     elif method == 'share':
-    	share(sys.argv[2], sys.argv[3])
+        share(sys.argv[2], sys.argv[3])
     elif method == 'folder':
         createfolder(sys.argv[2])
     elif method == 'debug':
