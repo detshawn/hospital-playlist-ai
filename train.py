@@ -58,18 +58,6 @@ def main():
                             device=device)
     vgg = VGG16(requires_grad=False).to(device)
 
-    # transfer learning set-up and existing model loading (is it first-time or continued learning?)
-    ckpt_model_path = os.path.join(checkpoint_dir, defined_ckpt_filename)
-    if transfer_learning:
-        checkpoint = torch.load(ckpt_model_path, map_location=device)
-        trainer.load_state_dict(checkpoint['model_state_dict'])
-        transfer_learning_epoch = checkpoint['epoch']
-    else:
-        transfer_learning_epoch = 0
-
-    trainer.to(device)
-    optimizer = torch.optim.Adam(trainer.parameters(), initial_lr)
-
     # desired size of the output image
     imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
 
@@ -88,25 +76,50 @@ def main():
                                                pin_memory=True)
 
     # style image importing and pre-processing
-    style = load_image(filename=style_image_path, size=None, scale=None)
+    if not os.path.exists('./output'):
+        os.mkdir('./output')
     style_transform = transforms.Compose([
         transforms.Resize(imsize*4),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
     ])
-    style = style_transform(style)
-    if not os.path.exists('./output'):
-        os.mkdir('./output')
-    save_image('./output/style_transformed.png', style)
-    style = style.repeat(batch_size, 1, 1, 1).to(device)
-
-    # check the size
-    # print(f'train_dataset[0][0].size(): {train_dataset[0][0].size()}')
-    # print(f'style[0].size(): {style[0].size()}')
 
     # pre-calculating gram_style
-    features_style = vgg(normalize_batch(style))
-    gram_style = [gram_matrix(y) for y in features_style]
+    gram_styles = []
+    if os.path.isdir(style_image_path):
+        paths = glob.glob(os.path.join(style_image_path, f'*'))
+    else:
+        paths = [style_image_path]
+    for i, path in enumerate(paths):
+        # import the image
+        style = load_image(filename=path, size=None, scale=None)
+
+        # transform the image into a tensor
+        style_t = style_transform(style)
+        save_image(f'./output/style_transformed[{i}].png', style_t)
+        style_t = style_t.repeat(batch_size, 1, 1, 1).to(device)
+
+        # check the size
+        # print(f'train_dataset[0][0].size(): {train_dataset[0][0].size()}')
+        # print(f'style_t[0].size(): {style_t[0].size()}')
+
+        # forward propagation of pre-trained net and derivation of a Gram matrix
+        features_style = vgg(normalize_batch(style_t))
+        gram_styles.append([gram_matrix(y) for y in features_style])
+
+        del style_t, features_style
+
+    # transfer learning set-up and existing model loading (is it first-time or continued learning?)
+    ckpt_model_path = os.path.join(checkpoint_dir, defined_ckpt_filename)
+    if transfer_learning:
+        checkpoint = torch.load(ckpt_model_path, map_location=device)
+        trainer.load_state_dict(checkpoint['model_state_dict'])
+        transfer_learning_epoch = checkpoint['epoch']
+    else:
+        transfer_learning_epoch = 0
+
+    trainer.to(device)
+    optimizer = torch.optim.Adam(trainer.parameters(), initial_lr)
 
     # training
     for epoch in range(transfer_learning_epoch, num_epochs):
@@ -115,6 +128,9 @@ def main():
         agg_style_loss = 0.
         agg_total_variation_loss = 0.
         count = 0
+
+        ps = np.random.permutation(len(gram_styles))
+        gram_style_itr = iter([gram_styles[p] for p in ps])
 
         for batch_id, (x, _) in enumerate(train_loader):
             n_batch = len(x)
@@ -132,6 +148,13 @@ def main():
             features_x = vgg(x)
 
             # losses
+            try:
+                gram_style = next(gram_style_itr)
+            except StopIteration:
+                ps = np.random.permutation(len(gram_styles))
+                gram_style_itr = iter([gram_styles[p] for p in ps])
+                gram_style = next(gram_style_itr)
+
             content_loss = get_content_loss(features_y.relu2_2, features_x.relu2_2)
             style_loss = get_style_loss(features_y, gram_style, n_batch)
             total_variation_loss = get_total_variation_loss(y)
@@ -141,6 +164,9 @@ def main():
             # backward
             total_loss.backward()
             optimizer.step()
+
+            del x, y, features_x, features_y
+            del content_loss, style_loss, total_variation_loss, total_loss
 
             agg_content_loss += meta['loss']['content']
             agg_style_loss += meta['loss']['style']
@@ -169,7 +195,7 @@ def main():
                 'epoch': epoch,
                 'model_state_dict': trainer.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'loss': total_loss
+                'loss': meta['loss']['total']
                 }, ckpt_model_path)
                 print(str(epoch), "th checkpoint is saved!")
 
@@ -190,7 +216,7 @@ if __name__ == '__main__':
     parser.add_argument('-train_dataset_dir', required=True)
     parser.add_argument('-train_dataset_subdir', required=True)
 
-    parser.add_argument('-style_image_path', default="./dataset/style/andy_dixon_summering.png")
+    parser.add_argument('-style_image_path', default="./dataset/style")
 
     parser.add_argument('-batch_size', default=8, type=int)
     parser.add_argument('-num_epochs', default=64, type=int)
