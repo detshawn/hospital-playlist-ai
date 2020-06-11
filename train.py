@@ -17,95 +17,54 @@ from utils import *
 from gdrive import upload
 
 
-def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f'device: {device}')
+def get_saved_ckpt_filename(_epoch, _batch_id):
+    return "ckpt_epoch_" + str(_epoch) + "_batch_id_" + str(_batch_id + 1) + ".ckpt"
 
-    # config
-    style_image_path = args.style_image_path
 
-    tag = args.tag
-    train_dataset_dir = args.train_dataset_dir
-    train_dataset_subdir = args.train_dataset_subdir
-    val_dataset_dir = args.val_dataset_dir
-    val_dataset_subdir = args.val_dataset_subdir
-    val_set_ratio = 0.1
-
-    batch_size = args.batch_size
-    random_seed = 10
-    num_epochs = args.num_epochs
-    initial_lr = args.initial_lr
-
-    log_interval = args.log_interval
-    log_dir = args.log_dir
-    logger = Logger(log_dir)
-    checkpoint_interval = args.checkpoint_interval
-    checkpoint_dir = args.checkpoint_dir
-    upload_by_epoch = args.upload_by_epoch
-    defined_ckpt_filename = args.ckpt_filename
-    def get_saved_ckpt_filename(_epoch, _batch_id):
-        return "ckpt_epoch_" + str(_epoch) + "_batch_id_" + str(_batch_id + 1) + ".ckpt"
-
-    transfer_learning = False  # inference or training first --> False / Transfer learning --> True
-
-    gdrive = args.gdrive
-
-    # style_image_sample = Image.open(style_image_path, 'r')
-    # display(style_image_sample)
-
-    np.random.seed(random_seed)
-    torch.manual_seed(random_seed)
-
-    # model and optimizer construction
-    transformer = TransformerNet()
-    trainer = LearnableLoss(model=transformer,
-                            loss_names=['content', 'style', 'total_variation'],
-                            device=device)
-    vgg = VGG16(requires_grad=False).to(device)
-
-    # desired size of the output image
-    imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
-
-    # training data importing and pre-processing
+def get_data_loader():
     transform = transforms.Compose([
-        transforms.Resize(imsize),
-        transforms.CenterCrop(imsize),
+        transforms.Resize(args.imsize),
+        transforms.CenterCrop(args.imsize),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
     ])
-    print(f'train dataset list: {glob.glob("/".join([train_dataset_dir, train_dataset_subdir]) + "/*")}')
-    train_dataset   = datasets.ImageFolder(train_dataset_dir, transform)
+    print(f'train dataset list: {glob.glob("/".join([args.train_dataset_dir, args.train_dataset_subdir]) + "/*")}')
+    train_dataset   = datasets.ImageFolder(args.train_dataset_dir, transform)
     val_dataset     = None
-    if val_dataset_dir is not None:
-        val_dataset = datasets.ImageFolder(val_dataset_dir, transform)
+    if args.val_dataset_dir is not None:
+        print(f'val dataset list: {glob.glob("/".join([args.val_dataset_dir, args.val_dataset_subdir]) + "/*")}')
+        val_dataset = datasets.ImageFolder(args.val_dataset_dir, transform)
     else:
         l = len(train_dataset)
-        train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, [l - int(l * val_set_ratio), int(l * val_set_ratio)])
+        train_dataset, val_dataset = torch.utils.data.random_split(train_dataset,
+                                                                   [l - int(l * args.val_set_ratio),
+                                                                    int(l * args.val_set_ratio)])
 
     train_loader = torch.utils.data.DataLoader(train_dataset,
-                                               batch_size=batch_size,
+                                               batch_size=args.batch_size,
                                                num_workers=8,
                                                pin_memory=True)
     val_loader = torch.utils.data.DataLoader(val_dataset,
-                                             batch_size=batch_size,
+                                             batch_size=args.batch_size,
                                              num_workers=8,
                                              pin_memory=True)
 
-    # style image importing and pre-processing
+    return train_loader, val_loader
+
+
+def get_gram_styles(vgg):
     if not os.path.exists('./output'):
         os.mkdir('./output')
     style_transform = transforms.Compose([
-        transforms.Resize(imsize*4),
+        transforms.Resize(args.imsize*4),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
     ])
-
-    # pre-calculating gram_style
     gram_styles = []
-    if os.path.isdir(style_image_path):
-        paths = glob.glob(os.path.join(style_image_path, f'*'))
+    if os.path.isdir(args.style_image_path):
+        paths = glob.glob(os.path.join(args.style_image_path, f'*'))
     else:
-        paths = [style_image_path]
+        paths = [args.style_image_path]
     for i, path in enumerate(paths):
         # import the image
         style = load_image(filename=path, size=None, scale=None)
@@ -113,7 +72,7 @@ def main():
         # transform the image into a tensor
         style_t = style_transform(style)
         save_image(f'./output/style_transformed[{i}].png', style_t)
-        style_t = style_t.repeat(batch_size, 1, 1, 1).to(device)
+        style_t = style_t.repeat(args.batch_size, 1, 1, 1).to(args.device)
 
         # check the size
         # print(f'train_dataset[0][0].size(): {train_dataset[0][0].size()}')
@@ -125,20 +84,15 @@ def main():
 
         del style_t, features_style
 
-    # transfer learning set-up and existing model loading (is it first-time or continued learning?)
-    ckpt_model_path = os.path.join(checkpoint_dir, defined_ckpt_filename)
-    if transfer_learning:
-        checkpoint = torch.load(ckpt_model_path, map_location=device)
-        trainer.load_state_dict(checkpoint['model_state_dict'])
-        transfer_learning_epoch = checkpoint['epoch']
-    else:
-        transfer_learning_epoch = 0
+    return gram_styles
 
-    trainer.to(device)
-    optimizer = torch.optim.Adam(trainer.parameters(), initial_lr)
+
+def train(trainer, vgg, optimizer, transfer_learning_epoch,
+          train_loader, val_loader, gram_styles):
+    logger = Logger(args.log_dir)
 
     # training
-    for epoch in range(transfer_learning_epoch, num_epochs):
+    for epoch in range(transfer_learning_epoch, args.num_epochs):
         trainer.train()
         agg_content_loss = 0.
         agg_style_loss = 0.
@@ -154,7 +108,7 @@ def main():
             optimizer.zero_grad()
 
             # forward prop
-            x = x.to(device)
+            x = x.to(args.device)
             y = trainer(x)
 
             y = normalize_batch(y)
@@ -189,12 +143,12 @@ def main():
             agg_total_variation_loss += meta['loss']['total_variation']
 
             # logging
-            if (batch_id + 1) % log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
-                logger.scalars_summary(f'{tag}/train', meta['loss'], epoch * len(train_loader.dataset) + count + 1)
-                logger.scalars_summary(f'{tag}/train_eta', meta['eta'], epoch * len(train_loader.dataset) + count + 1)
+            if (batch_id + 1) % args.log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
+                logger.scalars_summary(f'{args.tag}/train', meta['loss'], epoch * len(train_loader.dataset) + count + 1)
+                logger.scalars_summary(f'{args.tag}/train_eta', meta['eta'], epoch * len(train_loader.dataset) + count + 1)
 
                 mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal_variation: {:.6f}\ttotal: {:.6f}".format(
-                    time.ctime(), epoch + 1, count, len(train_dataset),
+                    time.ctime(), epoch + 1, count, len(train_loader),
                     agg_content_loss / (batch_id + 1),
                     agg_style_loss / (batch_id + 1),
                     agg_total_variation_loss / (batch_id + 1),
@@ -203,12 +157,12 @@ def main():
                 print(mesg)
 
             # checkpoint saving
-            if checkpoint_dir is not None and (batch_id + 1) % checkpoint_interval == 0:
+            if args.checkpoint_dir is not None and (batch_id + 1) % args.checkpoint_interval == 0:
                 trainer.eval().cpu()
                 saved_ckpt_filename = get_saved_ckpt_filename(epoch, batch_id)
-                if not os.path.exists(checkpoint_dir):
-                    os.mkdir(checkpoint_dir)
-                ckpt_model_path = os.path.join(checkpoint_dir, saved_ckpt_filename)
+                if not os.path.exists(args.checkpoint_dir):
+                    os.mkdir(args.checkpoint_dir)
+                ckpt_model_path = os.path.join(args.checkpoint_dir, saved_ckpt_filename)
                 torch.save({
                 'epoch': epoch,
                 'model_state_dict': trainer.state_dict(),
@@ -218,13 +172,50 @@ def main():
                 print(str(epoch), "th checkpoint is saved!")
 
                 # uploading the saved ckpt file to Google Drive
-                if gdrive and epoch + 1 % upload_by_epoch == 0:
+                if args.gdrive and epoch + 1 % args.upload_by_epoch == 0:
                     try:
                         upload(ckpt_model_path)
                     except:
                         1
 
-                trainer.to(device).train()
+                trainer.to(args.device).train()
+
+
+def main():
+    # config
+    random_seed = 10
+    initial_lr = args.initial_lr
+    np.random.seed(random_seed)
+    torch.manual_seed(random_seed)
+
+    # training data importing and pre-processing
+    train_loader, val_loader = get_data_loader()
+
+    # model construction
+    transformer = TransformerNet()
+    trainer = LearnableLoss(model=transformer,
+                            loss_names=['content', 'style', 'total_variation'],
+                            device=args.device)
+    vgg = VGG16(requires_grad=False).to(args.device)
+
+    # transfer learning set-up and model parameters loading
+    ckpt_model_path = os.path.join(args.checkpoint_dir, args.ckpt_filename)
+    if args.transfer_learning:
+        checkpoint = torch.load(ckpt_model_path, map_location=args.device)
+        trainer.load_state_dict(checkpoint['model_state_dict'])
+        transfer_learning_epoch = checkpoint['epoch']
+    else:
+        transfer_learning_epoch = 0
+    trainer.to(args.device)
+
+    # optimizer construction
+    optimizer = torch.optim.Adam(trainer.parameters(), initial_lr)
+
+    # style image importing, pre-processing and gram_style pre-calculating
+    gram_styles = get_gram_styles(vgg)
+
+    train(trainer, vgg, optimizer, transfer_learning_epoch,
+          train_loader, val_loader, gram_styles)
 
 
 if __name__ == '__main__':
@@ -236,6 +227,7 @@ if __name__ == '__main__':
     parser.add_argument('-train_dataset_subdir', required=True)
     parser.add_argument('-val_dataset_dir', default=None)
     parser.add_argument('-val_dataset_subdir', default=None)
+    parser.add_argument('-val_set_ratio', default=0.1, type=int)
 
     parser.add_argument('-style_image_path', default="./dataset/style")
 
@@ -259,5 +251,12 @@ if __name__ == '__main__':
 
     if args.ckpt_filename is None:
         args.ckpt_filename = f"ckpt_epoch_{args.num_epochs-1}_batch_id_{args.checkpoint_interval}.ckpt"
+
+    args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f'device: {args.device}')
+
+    # desired size of the output image
+    args.imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
+    print(f'imsize: {args.imsize}')
 
     main()
