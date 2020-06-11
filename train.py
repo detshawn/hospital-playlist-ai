@@ -27,6 +27,9 @@ def main():
     tag = args.tag
     train_dataset_dir = args.train_dataset_dir
     train_dataset_subdir = args.train_dataset_subdir
+    val_dataset_dir = args.val_dataset_dir
+    val_dataset_subdir = args.val_dataset_subdir
+    val_set_ratio = 0.1
 
     batch_size = args.batch_size
     random_seed = 10
@@ -71,11 +74,22 @@ def main():
         transforms.Lambda(lambda x: x.mul(255))
     ])
     print(f'train dataset list: {glob.glob("/".join([train_dataset_dir, train_dataset_subdir]) + "/*")}')
-    train_dataset = datasets.ImageFolder(train_dataset_dir, transform)
+    train_dataset   = datasets.ImageFolder(train_dataset_dir, transform)
+    val_dataset     = None
+    if val_dataset_dir is not None:
+        val_dataset = datasets.ImageFolder(val_dataset_dir, transform)
+    else:
+        l = len(train_dataset)
+        train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, [l - int(l * val_set_ratio), int(l * val_set_ratio)])
+
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=batch_size,
                                                num_workers=8,
                                                pin_memory=True)
+    val_loader = torch.utils.data.DataLoader(val_dataset,
+                                             batch_size=batch_size,
+                                             num_workers=8,
+                                             pin_memory=True)
 
     # style image importing and pre-processing
     if not os.path.exists('./output'):
@@ -220,6 +234,8 @@ if __name__ == '__main__':
     # train_dataset_subdir = "val2017"
     parser.add_argument('-train_dataset_dir', required=True)
     parser.add_argument('-train_dataset_subdir', required=True)
+    parser.add_argument('-val_dataset_dir', default=None)
+    parser.add_argument('-val_dataset_subdir', default=None)
 
     parser.add_argument('-style_image_path', default="./dataset/style")
 
