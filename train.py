@@ -139,7 +139,7 @@ def main():
             count += n_batch
             optimizer.zero_grad()
 
-            # forward
+            # forward prop
             x = x.to(device)
             y = trainer(x)
 
@@ -163,7 +163,7 @@ def main():
 
             total_loss, meta = trainer.get_total_loss([content_loss, style_loss, total_variation_loss])
 
-            # backward
+            # backward prop and update parameters
             total_loss.backward()
             optimizer.step()
 
@@ -174,6 +174,7 @@ def main():
             agg_style_loss += meta['loss']['style']
             agg_total_variation_loss += meta['loss']['total_variation']
 
+            # logging
             if (batch_id + 1) % log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
                 logger.scalars_summary(f'{tag}/train', meta['loss'], epoch * len(train_loader.dataset) + count + 1)
                 logger.scalars_summary(f'{tag}/train_eta', meta['eta'], epoch * len(train_loader.dataset) + count + 1)
@@ -187,6 +188,7 @@ def main():
                 )
                 print(mesg)
 
+            # checkpoint saving
             if checkpoint_dir is not None and (batch_id + 1) % checkpoint_interval == 0:
                 trainer.eval().cpu()
                 saved_ckpt_filename = get_saved_ckpt_filename(epoch, batch_id)
@@ -201,6 +203,7 @@ def main():
                 }, ckpt_model_path)
                 print(str(epoch), "th checkpoint is saved!")
 
+                # uploading the saved ckpt file to Google Drive
                 if gdrive and epoch + 1 % upload_by_epoch == 0:
                     try:
                         upload(ckpt_model_path)
