@@ -93,8 +93,9 @@ def permuted_iterator(x):
 
 
 def build_step_fn(trainer, vgg, optimizer):
-    def _step(x):
-        optimizer.zero_grad()
+    def _step(x, train=True):
+        if train:
+            optimizer.zero_grad()
 
         # forward prop
         x = x.to(args.device)
@@ -120,8 +121,16 @@ def build_step_fn(trainer, vgg, optimizer):
         total_loss, meta = trainer.get_total_loss([content_loss, style_loss, total_variation_loss])
 
         # backward prop and update parameters
-        total_loss.backward()
-        optimizer.step()
+        if train:
+            total_loss.backward()
+            optimizer.step()
+        else:
+            for k, v in meta['loss'].items():
+                meta['val_loss']['val_'+k] = v
+            del meta['loss']
+            for k, v in meta['eta'].items():
+                meta['val_eta']['val_' + k] = v
+            del meta['eta']
 
         del x, y, features_x, features_y
         del content_loss, style_loss, total_variation_loss, total_loss
@@ -141,9 +150,14 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
         agg_content_loss = 0.
         agg_style_loss = 0.
         agg_total_variation_loss = 0.
+        agg_val_content_loss = 0.
+        agg_val_style_loss = 0.
+        agg_val_total_variation_loss = 0.
         count = 0
+        count_val = 0
 
         args.gram_style_itr = permuted_iterator(args.gram_styles)
+        val_iter = iter(val_loader)
         for batch_id, (x, _) in enumerate(train_loader):
             count += len(x)
 
@@ -159,13 +173,46 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
                 logger.scalars_summary(f'{args.tag}/train_eta', meta['eta'], epoch * len(train_loader.dataset) + count + 1)
 
                 mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal_variation: {:.6f}\ttotal: {:.6f}".format(
-                    time.ctime(), epoch + 1, count, len(train_loader),
+                    time.ctime(), epoch + 1, count, len(train_loader.dataset),
                     agg_content_loss / (batch_id + 1),
                     agg_style_loss / (batch_id + 1),
                     agg_total_variation_loss / (batch_id + 1),
                     (agg_content_loss + agg_style_loss + agg_total_variation_loss) / (batch_id + 1)
                 )
                 print(mesg)
+
+            # validation
+            if (batch_id + 1) % int(1 / args.val_set_ratio) == 0:
+                batch_id_val = (batch_id + 1) % int(1 / args.val_set_ratio)
+                try:
+                    x_val, _ = next(val_iter)
+                except StopIteration:
+                    val_iter = iter(val_loader)
+                    x_val, _ = next(val_iter)
+                count_val += len(x_val)
+                trainer.eval()
+                with torch.no_grad():
+                    meta_val = step(x_val, train=False)
+                trainer.train()
+
+                agg_val_content_loss += meta_val['val_loss']['val_content']
+                agg_val_style_loss += meta_val['val_loss']['val_style']
+                agg_val_total_variation_loss += meta_val['val_loss']['val_total_variation']
+
+                if (batch_id_val + 1) % args.log_interval == 0 or batch_id_val + 1 == len(val_loader.dataset):
+                    logger.scalars_summary(f'{args.tag}/train', meta['val_loss'],
+                                           epoch * len(val_loader.dataset) + count_val + 1)
+                    logger.scalars_summary(f'{args.tag}/train_eta', meta['val_eta'],
+                                           epoch * len(val_loader.dataset) + count_val + 1)
+
+                    mesg = "{}\tEpoch {}:\t[{}/{}]\tval_content: {:.6f}\tval_style: {:.6f}\tval_total_variation: {:.6f}\tval_total: {:.6f}".format(
+                        time.ctime(), epoch + 1, count_val, len(val_loader.dataset),
+                                      agg_val_content_loss / (batch_id_val + 1),
+                                      agg_val_style_loss / (batch_id_val + 1),
+                                      agg_val_total_variation_loss / (batch_id_val + 1),
+                                      (agg_val_content_loss + agg_val_style_loss + agg_val_total_variation_loss) / (batch_id_val + 1)
+                    )
+                    print(mesg)
 
             # checkpoint saving
             if args.checkpoint_dir is not None and (batch_id + 1) % args.checkpoint_interval == 0:
