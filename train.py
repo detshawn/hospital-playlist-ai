@@ -125,9 +125,11 @@ def build_step_fn(trainer, vgg, optimizer):
             total_loss.backward()
             optimizer.step()
         else:
+            meta['val_loss'] = {}
             for k, v in meta['loss'].items():
                 meta['val_loss']['val_'+k] = v
             del meta['loss']
+            meta['val_eta'] = {}
             for k, v in meta['eta'].items():
                 meta['val_eta']['val_' + k] = v
             del meta['eta']
