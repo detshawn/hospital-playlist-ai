@@ -185,7 +185,7 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
 
             # validation
             if (batch_id + 1) % int(1 / args.val_set_ratio) == 0:
-                batch_id_val = (batch_id + 1) % int(1 / args.val_set_ratio)
+                batch_id_val = int((batch_id + 1) / int(1 / args.val_set_ratio))
                 try:
                     x_val, _ = next(val_iter)
                 except StopIteration:
