@@ -127,7 +127,7 @@ def build_step_fn(trainer, vgg, optimizer):
         else:
             meta['val_loss'] = {}
             for k, v in meta['loss'].items():
-                meta['val_loss']['val_'+k] = v
+                meta['val_loss']['val_' + k] = v
             del meta['loss']
             meta['val_eta'] = {}
             for k, v in meta['eta'].items():
@@ -174,8 +174,9 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
                 logger.scalars_summary(f'{args.tag}/train', meta['loss'], epoch * len(train_loader.dataset) + count + 1)
                 logger.scalars_summary(f'{args.tag}/train_eta', meta['eta'], epoch * len(train_loader.dataset) + count + 1)
 
-                mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal_variation: {:.6f}\ttotal: {:.6f}".format(
-                    time.ctime(), epoch + 1, count, len(train_loader.dataset),
+                mesg = "{}\tEpoch {}:\t[{}/{}]\tbatch_id: {}\t" \
+                       "content: {:.6f}\tstyle: {:.6f}\ttotal_variation: {:.6f}\ttotal: {:.6f}".format(
+                    time.ctime(), epoch + 1, count, len(train_loader.dataset), batch_id,
                     agg_content_loss / (batch_id + 1),
                     agg_style_loss / (batch_id + 1),
                     agg_total_variation_loss / (batch_id + 1),
@@ -201,14 +202,15 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
                 agg_val_style_loss += meta_val['val_loss']['val_style']
                 agg_val_total_variation_loss += meta_val['val_loss']['val_total_variation']
 
-                if (batch_id_val + 1) % args.log_interval == 0 or batch_id_val + 1 == len(val_loader.dataset):
-                    logger.scalars_summary(f'{args.tag}/train', meta['val_loss'],
-                                           epoch * len(val_loader.dataset) + count_val + 1)
-                    logger.scalars_summary(f'{args.tag}/train_eta', meta['val_eta'],
-                                           epoch * len(val_loader.dataset) + count_val + 1)
+                if (batch_id + 1) % args.log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
+                    logger.scalars_summary(f'{args.tag}/train', meta_val['val_loss'],
+                                           epoch * len(train_loader.dataset) + count + 1)
+                    logger.scalars_summary(f'{args.tag}/train_eta', meta_val['val_eta'],
+                                           epoch * len(train_loader.dataset) + count + 1)
 
-                    mesg = "{}\tEpoch {}:\t[{}/{}]\tval_content: {:.6f}\tval_style: {:.6f}\tval_total_variation: {:.6f}\tval_total: {:.6f}".format(
-                        time.ctime(), epoch + 1, count_val, len(val_loader.dataset),
+                    mesg = "{}\tEpoch {}:\t[{}/{}]\tbatch_id_val: {}\t" \
+                           "val_content: {:.6f}\tval_style: {:.6f}\tval_total_variation: {:.6f}\tval_total: {:.6f}".format(
+                        time.ctime(), epoch + 1, count_val, len(val_loader.dataset), batch_id_val,
                                       agg_val_content_loss / (batch_id_val + 1),
                                       agg_val_style_loss / (batch_id_val + 1),
                                       agg_val_total_variation_loss / (batch_id_val + 1),
