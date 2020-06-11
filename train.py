@@ -101,6 +101,10 @@ def build_step_fn(trainer, vgg, optimizer):
         x = x.to(args.device)
         y = trainer(x)
 
+        samples = {}
+        samples['x'] = x[:3].clone().detach().div_(255.)
+        samples['y'] = y[:3].clone().detach().div_(255.)
+
         y = normalize_batch(y)
         x = normalize_batch(x)
 
@@ -137,7 +141,7 @@ def build_step_fn(trainer, vgg, optimizer):
         del x, y, features_x, features_y
         del content_loss, style_loss, total_variation_loss, total_loss
 
-        return meta
+        return meta, samples
     return _step
 
 
@@ -163,7 +167,7 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
         for batch_id, (x, _) in enumerate(train_loader):
             count += len(x)
 
-            meta = step(x)
+            meta, _ = step(x)
 
             agg_content_loss += meta['loss']['content']
             agg_style_loss += meta['loss']['style']
@@ -195,7 +199,7 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
                 count_val += len(x_val)
                 trainer.eval()
                 with torch.no_grad():
-                    meta_val = step(x_val, train=False)
+                    meta_val, samples = step(x_val, train=False)
                 trainer.train()
 
                 agg_val_content_loss += meta_val['val_loss']['val_content']
@@ -217,6 +221,12 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
                                       (agg_val_content_loss + agg_val_style_loss + agg_val_total_variation_loss) / (batch_id_val + 1)
                     )
                     print(mesg)
+
+                if args.checkpoint_dir is not None and (batch_id + 1) % args.checkpoint_interval == 0:
+                    # sampling and saving the result
+                    for i in range(samples['x'].size()[0]):
+                        logger.image_summary(f'{args.tag}/img{i}_x', samples['x'][i], epoch)
+                        logger.image_summary(f'{args.tag}/img{i}_y', samples['y'][i], epoch)
 
             # checkpoint saving
             if args.checkpoint_dir is not None and (batch_id + 1) % args.checkpoint_interval == 0:

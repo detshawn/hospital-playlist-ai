@@ -62,6 +62,6 @@ class Logger(object):
         self.writer.add_audio(tag, value, step, sample_rate=sr)
         self.writer.flush()
 
-    def image_summary(self, tag, value, step):
-        self.writer.add_image(tag, value, step, dataformats='HWC')
+    def image_summary(self, tag, value, step, dataformats='CHW'):
+        self.writer.add_image(tag, value, step, dataformats=dataformats)
         self.writer.flush()
