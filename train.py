@@ -87,9 +87,53 @@ def get_gram_styles(vgg):
     return gram_styles
 
 
+def permuted_iterator(x):
+    ps = np.random.permutation(len(x))
+    return iter([x[p] for p in ps])
+
+
+def build_step_fn(trainer, vgg, optimizer):
+    def _step(x):
+        optimizer.zero_grad()
+
+        # forward prop
+        x = x.to(args.device)
+        y = trainer(x)
+
+        y = normalize_batch(y)
+        x = normalize_batch(x)
+
+        features_y = vgg(y)
+        features_x = vgg(x)
+
+        # losses
+        try:
+            gram_style = next(args.gram_style_itr)
+        except StopIteration:
+            args.gram_style_itr = permuted_iterator(args.gram_styles)
+            gram_style = next(args.gram_style_itr)
+
+        content_loss = get_content_loss(features_y.relu2_2, features_x.relu2_2)
+        style_loss = get_style_loss(features_y, gram_style, len(x))
+        total_variation_loss = get_total_variation_loss(y)
+
+        total_loss, meta = trainer.get_total_loss([content_loss, style_loss, total_variation_loss])
+
+        # backward prop and update parameters
+        total_loss.backward()
+        optimizer.step()
+
+        del x, y, features_x, features_y
+        del content_loss, style_loss, total_variation_loss, total_loss
+
+        return meta
+    return _step
+
+
 def train(trainer, vgg, optimizer, transfer_learning_epoch,
-          train_loader, val_loader, gram_styles):
+          train_loader, val_loader):
     logger = Logger(args.log_dir)
+    step = build_step_fn(trainer, vgg, optimizer)
 
     # training
     for epoch in range(transfer_learning_epoch, args.num_epochs):
@@ -99,44 +143,11 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
         agg_total_variation_loss = 0.
         count = 0
 
-        ps = np.random.permutation(len(gram_styles))
-        gram_style_itr = iter([gram_styles[p] for p in ps])
-
+        args.gram_style_itr = permuted_iterator(args.gram_styles)
         for batch_id, (x, _) in enumerate(train_loader):
-            n_batch = len(x)
-            count += n_batch
-            optimizer.zero_grad()
+            count += len(x)
 
-            # forward prop
-            x = x.to(args.device)
-            y = trainer(x)
-
-            y = normalize_batch(y)
-            x = normalize_batch(x)
-
-            features_y = vgg(y)
-            features_x = vgg(x)
-
-            # losses
-            try:
-                gram_style = next(gram_style_itr)
-            except StopIteration:
-                ps = np.random.permutation(len(gram_styles))
-                gram_style_itr = iter([gram_styles[p] for p in ps])
-                gram_style = next(gram_style_itr)
-
-            content_loss = get_content_loss(features_y.relu2_2, features_x.relu2_2)
-            style_loss = get_style_loss(features_y, gram_style, n_batch)
-            total_variation_loss = get_total_variation_loss(y)
-
-            total_loss, meta = trainer.get_total_loss([content_loss, style_loss, total_variation_loss])
-
-            # backward prop and update parameters
-            total_loss.backward()
-            optimizer.step()
-
-            del x, y, features_x, features_y
-            del content_loss, style_loss, total_variation_loss, total_loss
+            meta = step(x)
 
             agg_content_loss += meta['loss']['content']
             agg_style_loss += meta['loss']['style']
@@ -212,10 +223,10 @@ def main():
     optimizer = torch.optim.Adam(trainer.parameters(), initial_lr)
 
     # style image importing, pre-processing and gram_style pre-calculating
-    gram_styles = get_gram_styles(vgg)
+    args.gram_styles = get_gram_styles(vgg)
 
     train(trainer, vgg, optimizer, transfer_learning_epoch,
-          train_loader, val_loader, gram_styles)
+          train_loader, val_loader)
 
 
 if __name__ == '__main__':
