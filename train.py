@@ -45,6 +45,8 @@ def main():
 
     transfer_learning = False  # inference or training first --> False / Transfer learning --> True
 
+    gdrive = args.gdrive
+
     # style_image_sample = Image.open(style_image_path, 'r')
     # display(style_image_sample)
 
@@ -199,7 +201,7 @@ def main():
                 }, ckpt_model_path)
                 print(str(epoch), "th checkpoint is saved!")
 
-                if epoch + 1 % upload_by_epoch == 0:
+                if gdrive and epoch + 1 % upload_by_epoch == 0:
                     try:
                         upload(ckpt_model_path)
                     except:
@@ -231,6 +233,8 @@ if __name__ == '__main__':
     parser.add_argument('-upload_by_epoch', default=10, type=int)
 
     parser.add_argument('--transfer_learning', action='store_true')
+
+    parser.add_argument('--gdrive', action='store_true')
 
     args = parser.parse_args()
 
