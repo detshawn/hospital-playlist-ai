@@ -85,7 +85,7 @@ def main():
         cv2.destroyAllWindows()
 
         with torch.no_grad():
-            model_loader = LearnableLoss(TransformerNet(), [], device)
+            model_loader = LearnableLoss(TransformerNet(), ['null'+str(i) for i in range(3)], device)
 
             ckpt_model_path = os.path.join(checkpoint_dir, ckpt_filename) 
             checkpoint = torch.load(ckpt_model_path, map_location=device)

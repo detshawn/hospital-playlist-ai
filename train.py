@@ -144,28 +144,32 @@ def build_step_fn(trainer, vgg, optimizer):
             args.gram_style_itr = permuted_iterator(args.gram_styles)
             gram_style = next(args.gram_style_itr)
 
-        content_loss = get_content_loss(features_y.relu2_2, features_x.relu2_2)
-        style_loss = get_style_loss(features_y, gram_style, len(x))
-        total_variation_loss = get_total_variation_loss(y)
-
-        total_loss, meta = trainer.get_total_loss([content_loss, style_loss, total_variation_loss])
+        losses = []
+        for loss_name in args.loss_names:
+            if 'content' is loss_name:
+                losses.append(get_content_loss(features_y.relu2_2, features_x.relu2_2))
+            elif 'style' is loss_name:
+                losses.append(get_style_loss(features_y, gram_style, len(x)))
+            elif 'total_variation' is loss_name:
+                losses.append(get_total_variation_loss(y))
+        total_loss, meta = trainer.get_total_loss(losses)
 
         # backward prop and update parameters
         if train:
             total_loss.backward()
             optimizer.step()
         else:
-            meta['val_loss'] = {}
+            temp = {}
             for k, v in meta['loss'].items():
-                meta['val_loss']['val_' + k] = v
-            del meta['loss']
-            meta['val_eta'] = {}
+                temp['val_' + k] = v
+            meta['loss'] = temp.copy()
+            temp = {}
             for k, v in meta['eta'].items():
-                meta['val_eta']['val_' + k] = v
-            del meta['eta']
+                temp['val_' + k] = v
+            meta['eta'] = temp.copy()
 
         del x, y, features_x, features_y
-        del content_loss, style_loss, total_variation_loss, total_loss
+        del losses, total_loss
 
         return meta, samples
     return _step
@@ -179,12 +183,11 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
     # training
     for epoch in range(transfer_learning_epoch, args.num_epochs):
         trainer.train()
-        agg_content_loss = 0.
-        agg_style_loss = 0.
-        agg_total_variation_loss = 0.
-        agg_val_content_loss = 0.
-        agg_val_style_loss = 0.
-        agg_val_total_variation_loss = 0.
+        agg_loss = {}
+        agg_val_loss = {}
+        for k in trainer.get_loss_names():
+            agg_loss[k] = 0.
+            agg_val_loss['val_'+k] = 0.
         count = 0
         count_val = 0
 
@@ -195,24 +198,21 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
 
             meta, _ = step(x)
 
-            agg_content_loss += meta['loss']['content']
-            agg_style_loss += meta['loss']['style']
-            agg_total_variation_loss += meta['loss']['total_variation']
+            for k, v in meta['loss'].items():
+                if k != 'total':
+                    agg_loss[k] += v
 
             # logging
             if (batch_id + 1) % args.log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
                 logger.scalars_summary(f'{args.tag}/train', meta['loss'], epoch * len(train_loader.dataset) + count + 1)
                 logger.scalars_summary(f'{args.tag}/train_eta', meta['eta'], epoch * len(train_loader.dataset) + count + 1)
 
-                mesg = "{}\tEpoch {}:\t[{}/{}]\tbatch_id: {}\t" \
-                       "content: {:.6f}\tstyle: {:.6f}\ttotal_variation: {:.6f}\ttotal: {:.6f}".format(
-                    time.ctime(), epoch + 1, count, len(train_loader.dataset), batch_id,
-                    agg_content_loss / (batch_id + 1),
-                    agg_style_loss / (batch_id + 1),
-                    agg_total_variation_loss / (batch_id + 1),
-                    (agg_content_loss + agg_style_loss + agg_total_variation_loss) / (batch_id + 1)
-                )
-                print(mesg)
+                mesg = "{}\tEpoch {}:\t[{}/{}]\tbatch_id: {}\t".format(
+                    time.ctime(), epoch + 1, count, len(train_loader.dataset), batch_id)
+                value_mesg = ["{}: {:.6f}".format(k, v / (batch_id + 1)) for k, v in agg_loss.items()]
+                value_mesg.append("total: {:.6f}".format(sum(agg_loss.values()) / (batch_id + 1)))
+                value_mesg = "\t".join(value_mesg)
+                print(mesg + value_mesg)
 
             # validation
             if (batch_id + 1) % int(1 / args.val_set_ratio) == 0:
@@ -228,25 +228,22 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
                     meta_val, samples = step(x_val, train=False)
                 trainer.train()
 
-                agg_val_content_loss += meta_val['val_loss']['val_content']
-                agg_val_style_loss += meta_val['val_loss']['val_style']
-                agg_val_total_variation_loss += meta_val['val_loss']['val_total_variation']
+                for k, v in meta_val['loss'].items():
+                    if k != 'val_total':
+                        agg_val_loss[k] += v
 
                 if (batch_id + 1) % args.log_interval == 0 or batch_id + 1 == len(train_loader.dataset):
-                    logger.scalars_summary(f'{args.tag}/train', meta_val['val_loss'],
+                    logger.scalars_summary(f'{args.tag}/train', meta_val['loss'],
                                            epoch * len(train_loader.dataset) + count + 1)
-                    logger.scalars_summary(f'{args.tag}/train_eta', meta_val['val_eta'],
+                    logger.scalars_summary(f'{args.tag}/train_eta', meta_val['eta'],
                                            epoch * len(train_loader.dataset) + count + 1)
 
-                    mesg = "{}\tEpoch {}:\t[{}/{}]\tbatch_id_val: {}\t" \
-                           "val_content: {:.6f}\tval_style: {:.6f}\tval_total_variation: {:.6f}\tval_total: {:.6f}".format(
-                        time.ctime(), epoch + 1, count_val, len(val_loader.dataset), batch_id_val,
-                                      agg_val_content_loss / (batch_id_val + 1),
-                                      agg_val_style_loss / (batch_id_val + 1),
-                                      agg_val_total_variation_loss / (batch_id_val + 1),
-                                      (agg_val_content_loss + agg_val_style_loss + agg_val_total_variation_loss) / (batch_id_val + 1)
-                    )
-                    print(mesg)
+                    mesg = "{}\tEpoch {}:\t[{}/{}]\tbatch_id_val: {}\t".format(
+                        time.ctime(), epoch + 1, count_val, len(val_loader.dataset), batch_id)
+                    value_mesg = ["{}: {:.6f}".format(k, v / (batch_id_val + 1)) for k, v in agg_val_loss.items()]
+                    value_mesg.append("total: {:.6f}".format(sum(agg_val_loss.values()) / (batch_id_val + 1)))
+                    value_mesg = "\t".join(value_mesg)
+                    print(mesg + value_mesg)
 
                 if args.checkpoint_dir is not None and (batch_id + 1) % args.checkpoint_interval == 0:
                     # sampling and saving the result
@@ -292,7 +289,7 @@ def main():
     # model construction
     transformer = TransformerNet()
     trainer = LearnableLoss(model=transformer,
-                            loss_names=['content', 'style', 'total_variation'],
+                            loss_names=args.loss_names,
                             device=args.device)
     vgg = VGG16(requires_grad=False).to(args.device)
 
@@ -357,5 +354,8 @@ if __name__ == '__main__':
     # desired size of the output image
     args.imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
     print(f' - imsize: {args.imsize}')
+
+    args.loss_names = ['content', 'style', 'total_variation']
+    print(f' - losses: {args.loss_names}')
 
     main()

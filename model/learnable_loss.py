@@ -38,6 +38,9 @@ class LearnableLoss(nn.Module):
         self.eta = nn.Parameter(torch.zeros(len(loss_names), device=device))
         # self.sigmoid = nn.Sigmoid()
 
+    def get_loss_names(self):
+        return self.loss_names
+
     def get_model(self):
         return self.model
 
