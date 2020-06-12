@@ -28,13 +28,14 @@ def get_data_loader():
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
     ])
-    print(f'train dataset list: {glob.glob("/".join([args.train_dataset_dir, args.train_dataset_subdir]) + "/*")}')
+    print(f' - train dataset list: {glob.glob("/".join([args.train_dataset_dir, args.train_dataset_subdir]) + "/*")}')
     train_dataset   = datasets.ImageFolder(args.train_dataset_dir, transform)
     val_dataset     = None
     if args.val_dataset_dir is not None:
-        print(f'val dataset list: {glob.glob("/".join([args.val_dataset_dir, args.val_dataset_subdir]) + "/*")}')
+        print(f' - val dataset list: {glob.glob("/".join([args.val_dataset_dir, args.val_dataset_subdir]) + "/*")}')
         val_dataset = datasets.ImageFolder(args.val_dataset_dir, transform)
     else:
+        print(f' - val_set_ratio: {args.val_set_ratio}')
         l = len(train_dataset)
         train_dataset, val_dataset = torch.utils.data.random_split(train_dataset,
                                                                    [l - int(l * args.val_set_ratio),
@@ -80,7 +81,32 @@ def get_gram_styles(vgg):
 
         # forward propagation of pre-trained net and derivation of a Gram matrix
         features_style = vgg(normalize_batch(style_t))
-        gram_styles.append([gram_matrix(y) for y in features_style])
+        H, W = style_t.size()[2], style_t.size()[3]
+        h, w = args.imsize, args.imsize
+        half = int(args.imsize / 2)
+        step_list = [pow(2, i) for i in range(len(features_style))]
+        gram_styles_seg = []
+        while h <= H:
+            while w <= W:
+                gram_styles_seg.append(
+                    [gram_matrix(
+                        y[
+                             :,  # b
+                             :,  # c
+                             int((h - args.imsize) / step):int(h / step),  # h
+                             int((w - args.imsize) / step):int(w / step)].clone()  # w
+                    )
+                     for y, step in zip(features_style, step_list)]
+                )
+                if w != W:
+                    w = min([W, w+half])
+                else:
+                    break
+            if h != H:
+                h = min([H, h+half])
+            else:
+                break
+        gram_styles.extend(gram_styles_seg)
 
         del style_t, features_style
 
@@ -285,6 +311,7 @@ def main():
 
     # style image importing, pre-processing and gram_style pre-calculating
     args.gram_styles = get_gram_styles(vgg)
+    print(f' - # gram_styles: {len(args.gram_styles)}')
 
     train(trainer, vgg, optimizer, transfer_learning_epoch,
           train_loader, val_loader)
@@ -325,10 +352,10 @@ if __name__ == '__main__':
         args.ckpt_filename = f"ckpt_epoch_{args.num_epochs-1}_batch_id_{args.checkpoint_interval}.ckpt"
 
     args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f'device: {args.device}')
+    print(f' - device: {args.device}')
 
     # desired size of the output image
     args.imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
-    print(f'imsize: {args.imsize}')
+    print(f' - imsize: {args.imsize}')
 
     main()
