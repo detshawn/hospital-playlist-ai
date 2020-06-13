@@ -81,32 +81,7 @@ def get_gram_styles(vgg):
 
         # forward propagation of pre-trained net and derivation of a Gram matrix
         features_style = vgg(normalize_batch(style_t))
-        H, W = style_t.size()[2], style_t.size()[3]
-        h, w = args.imsize, args.imsize
-        half = int(args.imsize / 2)
-        step_list = [pow(2, i) for i in range(len(features_style))]
-        gram_styles_seg = []
-        while h <= H:
-            while w <= W:
-                gram_styles_seg.append(
-                    [gram_matrix(
-                        y[
-                             :,  # b
-                             :,  # c
-                             int((h - args.imsize) / step):int(h / step),  # h
-                             int((w - args.imsize) / step):int(w / step)].clone()  # w
-                    )
-                     for y, step in zip(features_style, step_list)]
-                )
-                if w != W:
-                    w = min([W, w+half])
-                else:
-                    break
-            if h != H:
-                h = min([H, h+half])
-            else:
-                break
-        gram_styles.extend(gram_styles_seg)
+        gram_styles.append([gram_matrix(y) for y in features_style])
 
         del style_t, features_style
 
