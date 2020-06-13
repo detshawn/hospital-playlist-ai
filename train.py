@@ -336,6 +336,7 @@ if __name__ == '__main__':
     # desired size of the output image
     args.imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
     print(f' - imsize: {args.imsize}')
+    print(f' - resize_style: {"Turn-on" if args.resize_style else "Turn-off"}')
     if args.style_imsize < 0:  # default
         args.style_imsize = args.imsize
     print(f' - style_imsize: {args.style_imsize}')
