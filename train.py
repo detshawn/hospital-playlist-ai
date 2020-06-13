@@ -339,7 +339,8 @@ if __name__ == '__main__':
     print(f' - resize_style: {"Turn-on" if args.resize_style else "Turn-off"}')
     if args.style_imsize < 0:  # default
         args.style_imsize = args.imsize
-    print(f' - style_imsize: {args.style_imsize}')
+    if args.resize_style:
+        print(f' - style_imsize: {args.style_imsize}')
 
     # loss setting
     args.loss_names = ['content', 'style', 'total_variation']

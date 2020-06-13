@@ -37,6 +37,7 @@ class LearnableLoss(nn.Module):
         self.loss_names = loss_names
         self.eta = nn.Parameter(torch.zeros(len(loss_names), device=device))
         self.weight_offsets = np.array(weight_offsets) if weight_offsets is not None else np.ones(len(loss_names))
+        self.device = device
         # self.sigmoid = nn.Sigmoid()
 
     def get_loss_names(self):
@@ -55,8 +56,8 @@ class LearnableLoss(nn.Module):
         # print(f'   loss_tensor: {loss_tensor}, total_loss: {total_loss}')
 
         meta = {'loss': {}, 'eta': {}}
-        for l, n, e in zip(losses, self.loss_names, self.eta.detach().cpu().numpy()):
-            meta['loss'][n] = l.item()
+        for l, n, o, e in zip(losses, self.loss_names, self.weight_offsets, self.eta.detach().cpu().numpy()):
+            meta['loss'][n] = l.item() * o
             meta['eta'][n] = e
         meta['loss']['total'] = total_loss
         return total_loss, meta
