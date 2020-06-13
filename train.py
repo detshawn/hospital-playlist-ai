@@ -57,7 +57,7 @@ def get_gram_styles(vgg):
     if not os.path.exists('./output'):
         os.mkdir('./output')
     style_transform = transforms.Compose([
-        transforms.Resize(args.imsize*4),
+        transforms.Resize(args.style_imsize),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
     ])
@@ -319,6 +319,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--gdrive', action='store_true')
 
+    parser.add_argument('-style_imsize', default=-1, type=int)
+
     args = parser.parse_args()
 
     if args.ckpt_filename is None:
@@ -330,7 +332,11 @@ if __name__ == '__main__':
     # desired size of the output image
     args.imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
     print(f' - imsize: {args.imsize}')
+    if args.style_imsize < 0:  # default
+        args.style_imsize = args.imsize
+    print(f' - style_imsize: {args.style_imsize}')
 
+    # loss setting
     args.loss_names = ['content', 'style', 'total_variation']
     print(f' - losses: {args.loss_names}')
     args.weight_offsets = [1, 1E4, 1E-7]
