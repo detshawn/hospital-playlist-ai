@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-
+import numpy as np
 
 MSE_LOSS = nn.MSELoss()
 
@@ -22,20 +22,22 @@ def get_style_loss(features_y, gram_style, n_batch):
     for ft_y, gm_s in zip(features_y, gram_style):
         gm_y = gram_matrix(ft_y)
         loss += MSE_LOSS(gm_y, gm_s[:n_batch, :, :])
-    return loss * 1E4
+    return loss
 
 
 def get_total_variation_loss(y):
     return (torch.sum(torch.abs(y[:, :, :, :-1] - y[:, :, :, 1:])) +\
-        torch.sum(torch.abs(y[:, :, :-1, :] - y[:, :, 1:, :]))) * 1E-6
+        torch.sum(torch.abs(y[:, :, :-1, :] - y[:, :, 1:, :])))
 
 
 class LearnableLoss(nn.Module):
-    def __init__(self, model, loss_names, device):
+    def __init__(self, model, loss_names, device, weight_offsets=None):
         super().__init__()
         self.model = model
         self.loss_names = loss_names
         self.eta = nn.Parameter(torch.zeros(len(loss_names), device=device))
+        self.weight_offsets = np.array(weight_offsets) if weight_offsets is not None else np.ones(len(loss_names))
+        self.weight_offsets = torch.Tensor(self.weight_offsets, device=device)
         # self.sigmoid = nn.Sigmoid()
 
     def get_loss_names(self):
@@ -49,7 +51,7 @@ class LearnableLoss(nn.Module):
 
     def get_total_loss(self, losses):
         loss_tensor = torch.stack(losses, dim=0)
-        total_loss = loss_tensor * torch.exp(-self.eta) + self.eta
+        total_loss = loss_tensor * self.weight_offsets * torch.exp(-self.eta) + self.eta
         total_loss = total_loss.sum()
         # print(f'   loss_tensor: {loss_tensor}, total_loss: {total_loss}')
 

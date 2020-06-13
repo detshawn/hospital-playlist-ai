@@ -265,7 +265,8 @@ def main():
     transformer = TransformerNet()
     trainer = LearnableLoss(model=transformer,
                             loss_names=args.loss_names,
-                            device=args.device)
+                            device=args.device,
+                            weight_offsets=args.weight_offsets)
     vgg = VGG16(requires_grad=False).to(args.device)
 
     # transfer learning set-up and model parameters loading
@@ -332,5 +333,7 @@ if __name__ == '__main__':
 
     args.loss_names = ['content', 'style', 'total_variation']
     print(f' - losses: {args.loss_names}')
+    args.weight_offsets = [1, 1E4, 1E-7]
+    print(f' - weight_offsets: {args.weight_offsets}')
 
     main()
