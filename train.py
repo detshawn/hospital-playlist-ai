@@ -56,11 +56,14 @@ def get_data_loader():
 def get_gram_styles(vgg):
     if not os.path.exists('./output'):
         os.mkdir('./output')
-    style_transform = transforms.Compose([
-        transforms.Resize(args.style_imsize),
+    transform_list = [
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
-    ])
+    ]
+    if args.resize_style:
+        transform_list.insert(0, transforms.Resize(args.style_imsize))
+    style_transform = transforms.Compose(transform_list)
+
     gram_styles = []
     if os.path.isdir(args.style_image_path):
         paths = glob.glob(os.path.join(args.style_image_path, f'*'))
@@ -319,6 +322,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--gdrive', action='store_true')
 
+    parser.add_argument('--resize_style', action='store_true')
     parser.add_argument('-style_imsize', default=-1, type=int)
 
     args = parser.parse_args()
