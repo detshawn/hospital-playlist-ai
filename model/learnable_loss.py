@@ -19,10 +19,11 @@ def get_content_loss(y, target):
 
 def get_style_loss(features_y, gram_style, n_batch):
     loss = 0.
+    w_l = 1/len(features_y)
     for ft_y, gm_s in zip(features_y, gram_style):
         gm_y = gram_matrix(ft_y)
-        loss += MSE_LOSS(gm_y, gm_s[:n_batch, :, :])
-    return loss / len(features_y)
+        loss += (MSE_LOSS(gm_y, gm_s[:n_batch, :, :]) / 4 * w_l)
+    return loss
 
 
 def get_total_variation_loss(y):

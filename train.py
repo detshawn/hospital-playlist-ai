@@ -345,7 +345,8 @@ if __name__ == '__main__':
     # loss setting
     args.loss_names = ['content', 'style', 'total_variation']
     print(f' - losses: {args.loss_names}')
-    args.weight_offsets = [1, 1E5, 1E-2]
+    args.style_weight_ratio = 1E5
+    args.weight_offsets = [1, args.style_weight_ratio, 1E-2]
     print(f' - weight_offsets: {args.weight_offsets}')
 
     main()
