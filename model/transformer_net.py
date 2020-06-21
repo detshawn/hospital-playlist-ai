@@ -97,23 +97,33 @@ class UpsampleConvLayer(nn.Module):
         return out
 
 
+class Encoder(nn.Module):
+    def __init__(self):
+        super(Encoder, self).__init__()
+        # Initial convolution layers
+        self.model = nn.Sequential()
+
+        self.model.add_module('conv1', ConvLayer(3, 32, kernel_size=9, stride=1))
+        self.model.add_module('in1', nn.InstanceNorm2d(32, affine=True))
+        self.model.add_module('relu1', nn.ReLU())
+
+        self.model.add_module('conv2', ConvLayer(32, 64, kernel_size=3, stride=2))
+        self.model.add_module('in2', nn.InstanceNorm2d(64, affine=True))
+        self.model.add_module('relu2', nn.ReLU())
+
+        self.model.add_module('conv3', ConvLayer(64, 128, kernel_size=3, stride=2))
+        self.model.add_module('in3', nn.InstanceNorm2d(128, affine=True))
+        self.model.add_module('relu3', nn.ReLU())
+
+    def forward(self, x):
+        return self.model(x)
+
+
 class TransformerNet(nn.Module):
     def __init__(self):
         super(TransformerNet, self).__init__()
-        # Initial convolution layers
-        self.encoder = nn.Sequential()
-
-        self.encoder.add_module('conv1', ConvLayer(3, 32, kernel_size=9, stride=1))
-        self.encoder.add_module('in1', nn.InstanceNorm2d(32, affine=True))
-        self.encoder.add_module('relu1', nn.ReLU())
-
-        self.encoder.add_module('conv2', ConvLayer(32, 64, kernel_size=3, stride=2))
-        self.encoder.add_module('in2', nn.InstanceNorm2d(64, affine=True))
-        self.encoder.add_module('relu2', nn.ReLU())
-
-        self.encoder.add_module('conv3', ConvLayer(64, 128, kernel_size=3, stride=2))
-        self.encoder.add_module('in3', nn.InstanceNorm2d(128, affine=True))
-        self.encoder.add_module('relu3', nn.ReLU())
+        # Encoder
+        self.encoder = Encoder()
 
         # Residual layers
         self.residual = nn.Sequential()
