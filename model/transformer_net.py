@@ -125,11 +125,11 @@ class TransformerNet(nn.Module):
         self.decoder = nn.Sequential()
         self.decoder.add_module('deconv1', UpsampleConvLayer(128, 64, kernel_size=3, stride=1, upsample=2))
         self.decoder.add_module('in4', nn.InstanceNorm2d(64, affine=True))
-        self.encoder.add_module('relu4', nn.ReLU())
+        self.decoder.add_module('relu4', nn.ReLU())
 
         self.decoder.add_module('deconv2', UpsampleConvLayer(64, 32, kernel_size=3, stride=1, upsample=2))
         self.decoder.add_module('in5', nn.InstanceNorm2d(32, affine=True))
-        self.encoder.add_module('relu5', nn.ReLU())
+        self.decoder.add_module('relu5', nn.ReLU())
 
         self.decoder.add_module('deconv3', ConvLayer(32, 3, kernel_size=9, stride=1))
 
