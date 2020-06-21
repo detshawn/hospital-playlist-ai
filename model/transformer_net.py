@@ -131,13 +131,77 @@ class ConvEncoder(nn.Module):
         return self.model(x)
 
 
-class ConvDecoder(nn.Module):
+class VGG16BonedSkinEncoder(nn.Module):
     def __init__(self, norm):
+        super(VGG16BonedSkinEncoder, self).__init__()
+        self.vgg = VGG16()
+        transfilters = []
+        transfilter1 = nn.Sequential()
+        transfilter1.add_module('trans_conv1_1', ConvLayer(64, 8, kernel_size=5, stride=1))
+        transfilter1.add_module('trans_norm1_1', norm_fn(norm)(8, affine=True))
+        transfilter1.add_module('trans_relu1_1', nn.ReLU())
+        transfilters.append(transfilter1)
+        transfilter2 = nn.Sequential()
+        transfilter2.add_module('trans_conv2_1', ConvLayer(128, 8, kernel_size=3, stride=1))
+        transfilter2.add_module('trans_norm2_1', norm_fn(norm)(8, affine=True))
+        transfilter2.add_module('trans_relu2_1', nn.ReLU())
+        transfilters.append(transfilter2)
+        # transfilter3 = nn.Sequential()
+        # transfilter3.add_module('trans_conv3_1', ConvLayer(256, 16, kernel_size=3, stride=1))
+        # transfilter3.add_module('trans_norm3_1',   norm_fn(norm)(8, affine=True))
+        # transfilter3.add_module('trans_relu3_1', nn.ReLU())
+        # transfilters.append(transfilter3)
+        # transfilter4 = nn.Sequential()
+        # transfilter4.add_module('trans_conv4_1', ConvLayer(512, 32, kernel_size=3, stride=1))
+        # transfilters.append(transfilter4)
+        self.transfilters = nn.ModuleList(transfilters)
+
+        fusers = []
+        fuser1 = nn.Sequential()
+        fuser1.add_module('trans_conv1_2', ConvLayer(8,  8, kernel_size=3, stride=2))
+        fuser1.add_module('trans_norm1',   norm_fn(norm)(8, affine=True))
+        fuser1.add_module('trans_relu1_2', nn.ReLU())
+        fusers.append(fuser1)
+        fuser2 = nn.Sequential()
+        fuser2.add_module('trans_conv2_2', ConvLayer(16, 16, kernel_size=3, stride=2))
+        fuser2.add_module('trans_norm2',   norm_fn(norm)(16, affine=True))
+        fuser2.add_module('trans_relu2_2', nn.ReLU())
+        fusers.append(fuser2)
+        # fuser3 = nn.Sequential()
+        # fuser3.add_module('trans_conv3_2', ConvLayer(32, 32, kernel_size=3, stride=2))
+        # fuser3.add_module('trans_norm3',   norm_fn(norm)(32, affine=True))
+        # fuser3.add_module('trans_relu3_2', nn.ReLU())
+        # fusers.append(fuser3)
+        # fuser4 = nn.Sequential()
+        # fuser4.add_module('trans_conv4_2', ConvLayer(64, 64, kernel_size=3, stride=1))
+        # fuser4.add_module('trans_norm4',   norm_fn(norm)(64, affine=True))
+        # fusers.append(fuser4)
+        self.fusers = nn.ModuleList(fusers)
+
+    def get_num_output_channels(self):
+        return 16 + 128
+
+    def forward(self, x):
+        features = self.vgg(x)
+        features = [features[i] for i in range(len(self.transfilters))]
+        print(f'len(features): {len(features)}')
+        prev = None
+        for f, transfilter, fuser in zip(features, self.transfilters, self.fusers):
+            transformed = transfilter(f)
+            prev = fuser(torch.cat((prev, transformed), dim=1)) if prev is not None else fuser(transformed)
+        print(f'features[-1].size(): {features[-1].size()}, prev.size(): {prev.size()}')
+        out = torch.cat((features[-1], prev), dim=1)
+        print(f'out..size(): {out.size()}')
+        return out
+
+
+class ConvDecoder(nn.Module):
+    def __init__(self, norm, in_channels=128):
         super(ConvDecoder, self).__init__()
         # Upsampling Layers
         self.model = nn.Sequential()
 
-        self.model.add_module('deconv1', UpsampleConvLayer(128, 64, kernel_size=3, stride=1, upsample=2))
+        self.model.add_module('deconv1', UpsampleConvLayer(in_channels, 64, kernel_size=3, stride=1, upsample=2))
         self.model.add_module('in4', norm_fn(norm)(64, affine=True))
         self.model.add_module('relu4', nn.ReLU())
 
@@ -155,15 +219,16 @@ class TransformerNet(nn.Module):
     def __init__(self, norm="instance"):
         super(TransformerNet, self).__init__()
         # Encoder
-        self.encoder = ConvEncoder(norm=norm)
+        # self.encoder = ConvEncoder(norm=norm)
+        self.encoder = VGG16BonedSkinEncoder(norm=norm)
 
         # Residual layers
         self.residual = nn.Sequential()
         for i in range(5):
-            self.residual.add_module('resblock_%d' % (i + 1), ResidualBlock(128, norm=norm))
+            self.residual.add_module('resblock_%d' % (i + 1), ResidualBlock(self.encoder.get_num_output_channels(), norm=norm))
 
         # Decoder
-        self.decoder = ConvDecoder(norm=norm)
+        self.decoder = ConvDecoder(norm=norm, in_channels=self.encoder.get_num_output_channels())
 
     def forward(self, x):
         encoder_output = self.encoder(x)
