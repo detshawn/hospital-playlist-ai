@@ -5,6 +5,18 @@ import torchvision.models as models
 from collections import namedtuple
 
 
+def norm_fn(norm):
+    if norm == "instance":
+        return nn.InstanceNorm2d
+    elif norm == "group":
+        return nn.GroupNorm
+    elif norm == "batch":
+        return nn.BatchNorm2d
+    else:
+        print(f'W: norm \"{norm}\" is not supported! default norm \"instance\" is used instead.')
+        return nn.InstanceNorm2d
+
+
 class VGG16(torch.nn.Module):
     def __init__(self, requires_grad=False):
         super(VGG16, self).__init__()
@@ -58,12 +70,12 @@ class ResidualBlock(nn.Module):
     recommended architecture: http://torch.ch/blog/2016/02/04/resnets.html
     """
 
-    def __init__(self, channels):
+    def __init__(self, channels, norm):
         super(ResidualBlock, self).__init__()
         self.conv1 = ConvLayer(channels, channels, kernel_size=3, stride=1)
-        self.in1 = nn.InstanceNorm2d(channels, affine=True)
+        self.in1 = norm_fn(norm)(channels, affine=True)
         self.conv2 = ConvLayer(channels, channels, kernel_size=3, stride=1)
-        self.in2 = nn.InstanceNorm2d(channels, affine=True)
+        self.in2 = norm_fn(norm)(channels, affine=True)
         self.relu = nn.ReLU()
 
     def forward(self, x):
@@ -98,21 +110,21 @@ class UpsampleConvLayer(nn.Module):
 
 
 class ConvEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, norm):
         super(ConvEncoder, self).__init__()
         # Initial convolution layers
         self.model = nn.Sequential()
 
         self.model.add_module('conv1', ConvLayer(3, 32, kernel_size=9, stride=1))
-        self.model.add_module('in1', nn.InstanceNorm2d(32, affine=True))
+        self.model.add_module('in1', norm_fn(norm)(32, affine=True))
         self.model.add_module('relu1', nn.ReLU())
 
         self.model.add_module('conv2', ConvLayer(32, 64, kernel_size=3, stride=2))
-        self.model.add_module('in2', nn.InstanceNorm2d(64, affine=True))
+        self.model.add_module('in2', norm_fn(norm)(64, affine=True))
         self.model.add_module('relu2', nn.ReLU())
 
         self.model.add_module('conv3', ConvLayer(64, 128, kernel_size=3, stride=2))
-        self.model.add_module('in3', nn.InstanceNorm2d(128, affine=True))
+        self.model.add_module('in3', norm_fn(norm)(128, affine=True))
         self.model.add_module('relu3', nn.ReLU())
 
     def forward(self, x):
@@ -120,17 +132,17 @@ class ConvEncoder(nn.Module):
 
 
 class ConvDecoder(nn.Module):
-    def __init__(self):
+    def __init__(self, norm):
         super(ConvDecoder, self).__init__()
         # Upsampling Layers
         self.model = nn.Sequential()
-        
+
         self.model.add_module('deconv1', UpsampleConvLayer(128, 64, kernel_size=3, stride=1, upsample=2))
-        self.model.add_module('in4', nn.InstanceNorm2d(64, affine=True))
+        self.model.add_module('in4', norm_fn(norm)(64, affine=True))
         self.model.add_module('relu4', nn.ReLU())
 
         self.model.add_module('deconv2', UpsampleConvLayer(64, 32, kernel_size=3, stride=1, upsample=2))
-        self.model.add_module('in5', nn.InstanceNorm2d(32, affine=True))
+        self.model.add_module('in5', norm_fn(norm)(32, affine=True))
         self.model.add_module('relu5', nn.ReLU())
 
         self.model.add_module('deconv3', ConvLayer(32, 3, kernel_size=9, stride=1))
@@ -140,18 +152,18 @@ class ConvDecoder(nn.Module):
 
 
 class TransformerNet(nn.Module):
-    def __init__(self):
+    def __init__(self, norm="instance"):
         super(TransformerNet, self).__init__()
         # Encoder
-        self.encoder = ConvEncoder()
+        self.encoder = ConvEncoder(norm=norm)
 
         # Residual layers
         self.residual = nn.Sequential()
         for i in range(5):
-            self.residual.add_module('resblock_%d' % (i + 1), ResidualBlock(128))
+            self.residual.add_module('resblock_%d' % (i + 1), ResidualBlock(128, norm=norm))
 
         # Decoder
-        self.decoder = ConvDecoder()
+        self.decoder = ConvDecoder(norm=norm)
 
     def forward(self, x):
         encoder_output = self.encoder(x)
