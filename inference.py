@@ -38,7 +38,9 @@ def main():
     # inference data importing
     if option == "image":
         content_image = load_image(content_image_path)
+        w, h = 4 * int(content_image.size[0] / 4), 4 * int(content_image.size[1] / 4)
         content_transform = transforms.Compose([
+            transforms.Resize((h, w)),
             transforms.ToTensor(),
             transforms.Lambda(lambda x: x.mul(255))
         ])
