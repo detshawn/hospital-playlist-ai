@@ -184,14 +184,14 @@ class VGG16BonedSkinEncoder(nn.Module):
     def forward(self, x):
         features = self.vgg(x)
         features = [features[i] for i in range(len(self.transfilters))]
-        print(f'len(features): {len(features)}')
+
         prev = None
         for f, transfilter, fuser in zip(features, self.transfilters, self.fusers):
             transformed = transfilter(f)
             prev = fuser(torch.cat((prev, transformed), dim=1)) if prev is not None else fuser(transformed)
-        # print(f'features[-1].size(): {features[-1].size()}, prev.size(): {prev.size()}')
+
         out = torch.cat((features[-1], prev), dim=1)
-        # print(f'out..size(): {out.size()}')
+
         return out
 
 
