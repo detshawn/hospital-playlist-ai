@@ -97,9 +97,9 @@ class UpsampleConvLayer(nn.Module):
         return out
 
 
-class Encoder(nn.Module):
+class ConvEncoder(nn.Module):
     def __init__(self):
-        super(Encoder, self).__init__()
+        super(ConvEncoder, self).__init__()
         # Initial convolution layers
         self.model = nn.Sequential()
 
@@ -119,29 +119,39 @@ class Encoder(nn.Module):
         return self.model(x)
 
 
+class ConvDecoder(nn.Module):
+    def __init__(self):
+        super(ConvDecoder, self).__init__()
+        # Upsampling Layers
+        self.model = nn.Sequential()
+        
+        self.model.add_module('deconv1', UpsampleConvLayer(128, 64, kernel_size=3, stride=1, upsample=2))
+        self.model.add_module('in4', nn.InstanceNorm2d(64, affine=True))
+        self.model.add_module('relu4', nn.ReLU())
+
+        self.model.add_module('deconv2', UpsampleConvLayer(64, 32, kernel_size=3, stride=1, upsample=2))
+        self.model.add_module('in5', nn.InstanceNorm2d(32, affine=True))
+        self.model.add_module('relu5', nn.ReLU())
+
+        self.model.add_module('deconv3', ConvLayer(32, 3, kernel_size=9, stride=1))
+
+    def forward(self, x):
+        return self.model(x)
+
+
 class TransformerNet(nn.Module):
     def __init__(self):
         super(TransformerNet, self).__init__()
         # Encoder
-        self.encoder = Encoder()
+        self.encoder = ConvEncoder()
 
         # Residual layers
         self.residual = nn.Sequential()
-
         for i in range(5):
             self.residual.add_module('resblock_%d' % (i + 1), ResidualBlock(128))
 
-        # Upsampling Layers
-        self.decoder = nn.Sequential()
-        self.decoder.add_module('deconv1', UpsampleConvLayer(128, 64, kernel_size=3, stride=1, upsample=2))
-        self.decoder.add_module('in4', nn.InstanceNorm2d(64, affine=True))
-        self.decoder.add_module('relu4', nn.ReLU())
-
-        self.decoder.add_module('deconv2', UpsampleConvLayer(64, 32, kernel_size=3, stride=1, upsample=2))
-        self.decoder.add_module('in5', nn.InstanceNorm2d(32, affine=True))
-        self.decoder.add_module('relu5', nn.ReLU())
-
-        self.decoder.add_module('deconv3', ConvLayer(32, 3, kernel_size=9, stride=1))
+        # Decoder
+        self.decoder = ConvDecoder()
 
     def forward(self, x):
         encoder_output = self.encoder(x)
