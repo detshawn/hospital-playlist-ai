@@ -158,7 +158,7 @@ class VGG16BonedSkinEncoder(nn.Module):
 
         fusers = []
         fuser1 = nn.Sequential()
-        fuser1.add_module('trans_conv1_2', ConvLayer(8,  8, kernel_size=3, stride=1))
+        fuser1.add_module('trans_conv1_2', ConvLayer(8,  8, kernel_size=3, stride=2))
         fuser1.add_module('trans_norm1',   norm_fn(norm)(8, affine=True))
         fuser1.add_module('trans_relu1_2', nn.ReLU())
         fusers.append(fuser1)
@@ -168,7 +168,7 @@ class VGG16BonedSkinEncoder(nn.Module):
         fuser2.add_module('trans_relu2_2', nn.ReLU())
         fusers.append(fuser2)
         fuser3 = nn.Sequential()
-        fuser3.add_module('trans_conv3_2', ConvLayer(32, 32, kernel_size=3, stride=2))
+        fuser3.add_module('trans_conv3_2', ConvLayer(32, 32, kernel_size=3, stride=1))
         fuser3.add_module('trans_norm3',   norm_fn(norm)(32, affine=True))
         fuser3.add_module('trans_relu3_2', nn.ReLU())
         fusers.append(fuser3)
