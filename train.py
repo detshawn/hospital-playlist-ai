@@ -265,7 +265,7 @@ def main():
     train_loader, val_loader = get_data_loader()
 
     # model construction
-    transformer = TransformerNet()
+    transformer = TransformerNet(norm=args.norm)
     trainer = LearnableLoss(model=transformer,
                             loss_names=args.loss_names,
                             device=args.device,
@@ -309,6 +309,7 @@ if __name__ == '__main__':
     parser.add_argument('-batch_size', default=8, type=int)
     parser.add_argument('-num_epochs', default=64, type=int)
     parser.add_argument('-initial_lr', default=1e-3, type=float)
+    parser.add_argument('-norm', default='instance')
 
     parser.add_argument('-log_interval', default=50, type=int)
     parser.add_argument('-log_dir', default='./log')
