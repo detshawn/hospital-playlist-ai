@@ -137,20 +137,20 @@ class VGG16BonedSkinEncoder(nn.Module):
         self.vgg = VGG16()
         transfilters = []
         transfilter1 = nn.Sequential()
-        transfilter1.add_module('trans_conv1_1', ConvLayer(64, 8, kernel_size=9, stride=1))
-        transfilter1.add_module('trans_norm1_1', norm_fn(norm)(8, affine=True))
+        transfilter1.add_module('trans_conv1_1', ConvLayer(64, 4, kernel_size=9, stride=1))
+        transfilter1.add_module('trans_norm1_1', norm_fn(norm)(4, affine=True))
         transfilter1.add_module('trans_relu1_1', nn.ReLU())
         transfilters.append(transfilter1)
         transfilter2 = nn.Sequential()
-        transfilter2.add_module('trans_conv2_1', ConvLayer(128, 8, kernel_size=3, stride=1))
-        transfilter2.add_module('trans_norm2_1', norm_fn(norm)(8, affine=True))
+        transfilter2.add_module('trans_conv2_1', ConvLayer(128, 4, kernel_size=3, stride=1))
+        transfilter2.add_module('trans_norm2_1', norm_fn(norm)(4, affine=True))
         transfilter2.add_module('trans_relu2_1', nn.ReLU())
         transfilters.append(transfilter2)
-        # transfilter3 = nn.Sequential()
-        # transfilter3.add_module('trans_conv3_1', ConvLayer(256, 16, kernel_size=3, stride=1))
-        # transfilter3.add_module('trans_norm3_1',   norm_fn(norm)(16, affine=True))
-        # transfilter3.add_module('trans_relu3_1', nn.ReLU())
-        # transfilters.append(transfilter3)
+        transfilter3 = nn.Sequential()
+        transfilter3.add_module('trans_conv3_1', ConvLayer(256, 128-8, kernel_size=3, stride=1))
+        transfilter3.add_module('trans_norm3_1',   norm_fn(norm)(128-8, affine=True))
+        transfilter3.add_module('trans_relu3_1', nn.ReLU())
+        transfilters.append(transfilter3)
         # transfilter4 = nn.Sequential()
         # transfilter4.add_module('trans_conv4_1', ConvLayer(512, 32, kernel_size=3, stride=1))
         # transfilters.append(transfilter4)
@@ -158,20 +158,22 @@ class VGG16BonedSkinEncoder(nn.Module):
 
         fusers = []
         fuser1 = nn.Sequential()
-        fuser1.add_module('trans_conv1_2', ConvLayer(8,  8, kernel_size=3, stride=2))
-        fuser1.add_module('trans_norm1',   norm_fn(norm)(8, affine=True))
+        fuser1.add_module('trans_conv1_2', ConvLayer(4,  4, kernel_size=3, stride=1))
+        fuser1.add_module('trans_norm1',   norm_fn(norm)(4, affine=True))
         fuser1.add_module('trans_relu1_2', nn.ReLU())
+        fuser1.add_module('trans_maxpool1', nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
         fusers.append(fuser1)
         fuser2 = nn.Sequential()
-        fuser2.add_module('trans_conv2_2', ConvLayer(16, 16, kernel_size=3, stride=2))
-        fuser2.add_module('trans_norm2',   norm_fn(norm)(16, affine=True))
+        fuser2.add_module('trans_conv2_2', ConvLayer(8, 8, kernel_size=3, stride=1))
+        fuser2.add_module('trans_norm2',   norm_fn(norm)(8, affine=True))
         fuser2.add_module('trans_relu2_2', nn.ReLU())
+        fuser2.add_module('trans_maxpool2', nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
         fusers.append(fuser2)
-        # fuser3 = nn.Sequential()
-        # fuser3.add_module('trans_conv3_2', ConvLayer(32, 32, kernel_size=3, stride=1))
-        # fuser3.add_module('trans_norm3',   norm_fn(norm)(32, affine=True))
-        # fuser3.add_module('trans_relu3_2', nn.ReLU())
-        # fusers.append(fuser3)
+        fuser3 = nn.Sequential()
+        fuser3.add_module('trans_conv3_2', ConvLayer(128, 128, kernel_size=3, stride=1))
+        fuser3.add_module('trans_norm3',   norm_fn(norm)(128, affine=True))
+        fuser3.add_module('trans_relu3_2', nn.ReLU())
+        fusers.append(fuser3)
         # fuser4 = nn.Sequential()
         # fuser4.add_module('trans_conv4_2', ConvLayer(64, 64, kernel_size=3, stride=1))
         # fuser4.add_module('trans_norm4',   norm_fn(norm)(64, affine=True))
@@ -179,7 +181,7 @@ class VGG16BonedSkinEncoder(nn.Module):
         self.fusers = nn.ModuleList(fusers)
 
     def get_num_output_channels(self):
-        return 16 + 128
+        return 128
 
     def forward(self, x):
         features = self.vgg(x)
@@ -190,7 +192,7 @@ class VGG16BonedSkinEncoder(nn.Module):
             transformed = transfilter(f)
             prev = fuser(torch.cat((prev, transformed), dim=1)) if prev is not None else fuser(transformed)
 
-        out = torch.cat((features[-1], prev), dim=1)
+        out = prev # torch.cat((features[-1], prev), dim=1)
 
         return out
 
