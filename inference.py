@@ -49,8 +49,6 @@ def main():
         content_image = content_image.unsqueeze(0).to(device)
 
         with torch.no_grad():
-            model_loader = LearnableLoss(TransformerNet(), ['null'+str(i) for i in range(3)], device)
-
             ckpt_model_path = os.path.join(checkpoint_dir, ckpt_filename)
             checkpoint = torch.load(ckpt_model_path, map_location=device)
 
@@ -58,6 +56,10 @@ def main():
             for k in list(checkpoint.keys()):
                 if re.search(r'in\d+\.running_(mean|var)$', k):
                     del checkpoint[k]
+
+            model_loader = LearnableLoss(TransformerNet(norm=checkpoint['norm']),
+                                         ['null'+str(i) for i in range(3)],
+                                         device)
 
             model_loader.load_state_dict(checkpoint['model_state_dict'], strict=False)
             model_loader.to(device)
@@ -87,9 +89,7 @@ def main():
         cv2.destroyAllWindows()
 
         with torch.no_grad():
-            model_loader = LearnableLoss(TransformerNet(), ['null'+str(i) for i in range(3)], device)
-
-            ckpt_model_path = os.path.join(checkpoint_dir, ckpt_filename) 
+            ckpt_model_path = os.path.join(checkpoint_dir, ckpt_filename)
             checkpoint = torch.load(ckpt_model_path, map_location=device)
 
             # remove saved deprecated running_* keys in InstanceNorm from the checkpoint
@@ -97,7 +97,11 @@ def main():
                 if re.search(r'in\d+\.running_(mean|var)$', k):
                     del checkpoint[k]
 
-            model_loader.load_state_dict(checkpoint['model_state_dict'])
+            model_loader = LearnableLoss(TransformerNet(),
+                                         ['null'+str(i) for i in range(3)],
+                                         device)
+
+            model_loader.load_state_dict(checkpoint['model_state_dict'], strict=False)
             model_loader.to(device)
             style_model = model_loader.model
 

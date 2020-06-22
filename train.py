@@ -245,10 +245,11 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
                         del to_save[k]
 
                 torch.save({
-                'epoch': epoch,
-                'model_state_dict': to_save,
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': meta['loss']['total']
+                    'epoch': epoch,
+                    'model_state_dict': to_save,
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'norm': args.norm,
+                    'loss': meta['loss']['total']
                 }, ckpt_model_path)
                 print(str(epoch), "th checkpoint is saved!")
 
