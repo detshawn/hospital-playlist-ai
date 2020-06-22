@@ -104,17 +104,18 @@ def build_step_fn(trainer, vgg, optimizer):
 
         # forward prop
         x = x.to(args.device)
-        y = trainer(x)
 
+        x_norm = normalize_batch(x)
+        features_x = vgg(x_norm)
+
+        y = trainer(x, features_x)
         samples = {}
         samples['x'] = x[:3].clone().detach().div_(255.)
         samples['y'] = y[:3].clone().detach().div_(255.)
 
-        y = normalize_batch(y)
-        x = normalize_batch(x)
+        y_norm = normalize_batch(y)
 
-        features_y = vgg(y)
-        features_x = vgg(x)
+        features_y = vgg(y_norm)
 
         # losses
         try:

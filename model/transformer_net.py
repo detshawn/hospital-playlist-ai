@@ -134,7 +134,7 @@ class ConvEncoder(nn.Module):
 class VGG16BonedSkinEncoder(nn.Module):
     def __init__(self, norm):
         super(VGG16BonedSkinEncoder, self).__init__()
-        self.vgg = VGG16()
+        # self.vgg = VGG16()
         self.relu = nn.ReLU()
         transfilters = []
         transfilter1 = nn.Sequential()
@@ -176,8 +176,8 @@ class VGG16BonedSkinEncoder(nn.Module):
     def get_num_output_channels(self):
         return 128
 
-    def forward(self, x):
-        features = self.vgg(x)
+    def forward(self, x, features):
+        # features = self.vgg(x)
         features = [features[i] for i in range(len(self.transfilters))]
 
         prev = None
@@ -225,8 +225,8 @@ class TransformerNet(nn.Module):
         # Decoder
         self.decoder = ConvDecoder(norm=norm, in_channels=self.encoder.get_num_output_channels())
 
-    def forward(self, x):
-        encoder_output = self.encoder(x)
+    def forward(self, x, features):
+        encoder_output = self.encoder(x, features)
         residual_output = self.residual(encoder_output)
         decoder_output = self.decoder(residual_output)
 
