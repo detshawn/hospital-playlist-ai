@@ -59,7 +59,7 @@ def main():
                 if re.search(r'in\d+\.running_(mean|var)$', k):
                     del checkpoint[k]
 
-            model_loader.load_state_dict(checkpoint['model_state_dict'])
+            model_loader.load_state_dict(checkpoint['model_state_dict'], strict=False)
             model_loader.to(device)
             style_model = model_loader.model
 

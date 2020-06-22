@@ -9,6 +9,7 @@ import numpy as np
 
 import time
 import glob
+import re
 
 from model.learnable_loss import *
 from model.transformer_net import TransformerNet, VGG16
@@ -236,9 +237,16 @@ def train(trainer, vgg, optimizer, transfer_learning_epoch,
                 if not os.path.exists(args.checkpoint_dir):
                     os.mkdir(args.checkpoint_dir)
                 ckpt_model_path = os.path.join(args.checkpoint_dir, saved_ckpt_filename)
+
+                # remove saved deprecated running_* keys in InstanceNorm from the checkpoint
+                to_save = trainer.state_dict()
+                for k in list(to_save.keys()):
+                    if re.search(r'model\.encoder\.vgg.?', k):
+                        del to_save[k]
+
                 torch.save({
                 'epoch': epoch,
-                'model_state_dict': trainer.state_dict(),
+                'model_state_dict': to_save,
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': meta['loss']['total']
                 }, ckpt_model_path)
