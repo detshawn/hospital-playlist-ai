@@ -109,11 +109,13 @@ def build_step_fn(trainer, vgg, optimizer):
         features_x = vgg(x_norm)
 
         y = trainer(x, features_x)
-        for p in trainer.model.encoder.parameters():
-            p.requires_grad = False
+        for name, p in trainer.model.encoder.named_parameters():
+            if not re.search(r'fusers.?', name):
+                p.requires_grad = False
         y_for_content = trainer(x, features_x)
-        for p in trainer.model.encoder.parameters():
-            p.requires_grad = True
+        for name, p in trainer.model.encoder.named_parameters():
+            if not re.search(r'fusers.?', name):
+                p.requires_grad = True
 
         samples = {}
         samples['x'] = x[:3].clone().detach().div_(255.)
