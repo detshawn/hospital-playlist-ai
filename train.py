@@ -108,24 +108,15 @@ def build_step_fn(trainer, vgg, optimizer):
         x_norm = normalize_batch(x)
         features_x = vgg(x_norm)
 
-        y = trainer(x, features_x)
-        for name, p in trainer.model.encoder.named_parameters():
-            if not re.search(r'fusers.?', name):
-                p.requires_grad = False
-        y_for_content = trainer(x, features_x)
-        for name, p in trainer.model.encoder.named_parameters():
-            if not re.search(r'fusers.?', name):
-                p.requires_grad = True
+        y = trainer(x)
 
         samples = {}
         samples['x'] = x[:3].clone().detach().div_(255.)
         samples['y'] = y[:3].clone().detach().div_(255.)
 
         y_norm = normalize_batch(y)
-        y_for_content_norm = normalize_batch(y_for_content)
 
         features_y = vgg(y_norm)
-        features_y_for_content = vgg(y_for_content_norm)
 
         # losses
         try:
@@ -137,7 +128,7 @@ def build_step_fn(trainer, vgg, optimizer):
         losses = []
         for loss_name in args.loss_names:
             if 'content' is loss_name:
-                losses.append(get_content_loss(features_y_for_content.relu2_2, features_x.relu2_2))
+                losses.append(get_content_loss(features_y.relu2_2, features_x.relu2_2))
             elif 'style' is loss_name:
                 losses.append(get_style_loss(features_y, gram_style, len(x)))
             elif 'total_variation' is loss_name:

@@ -157,15 +157,15 @@ class VGG16BonedSkinEncoder(nn.Module):
         fusers = []
         fuser1 = nn.Sequential()
         fuser1.add_module('trans_conv1_2', ConvLayer(16, 16, kernel_size=3, stride=2))
-        fuser1.add_module('trans_norm1',   norm_fn(norm)(16, affine=True))
+        fuser1.add_module('trans_norm1_2',   norm_fn(norm)(16, affine=True))
         fusers.append(fuser1)
         fuser2 = nn.Sequential()
         fuser2.add_module('trans_conv2_2', ConvLayer(32, 64, kernel_size=3, stride=2))
-        fuser2.add_module('trans_norm2',   norm_fn(norm)(64, affine=True))
+        fuser2.add_module('trans_norm2_2',   norm_fn(norm)(64, affine=True))
         fusers.append(fuser2)
         fuser3 = nn.Sequential()
         fuser3.add_module('trans_conv3_2', ConvLayer(128, 128, kernel_size=3, stride=1))
-        fuser3.add_module('trans_norm3',   norm_fn(norm)(128, affine=True))
+        fuser3.add_module('trans_norm3_2',   norm_fn(norm)(128, affine=True))
         fusers.append(fuser3)
         # fuser4 = nn.Sequential()
         # fuser4.add_module('trans_conv4_2', ConvLayer(64, 64, kernel_size=3, stride=1))
@@ -214,19 +214,18 @@ class TransformerNet(nn.Module):
     def __init__(self, norm="instance"):
         super(TransformerNet, self).__init__()
         # Encoder
-        # self.encoder = ConvEncoder(norm=norm)
-        self.encoder = VGG16BonedSkinEncoder(norm=norm)
+        self.encoder = ConvEncoder(norm=norm)
 
         # Residual layers
         self.residual = nn.Sequential()
         for i in range(5):
-            self.residual.add_module('resblock_%d' % (i + 1), ResidualBlock(self.encoder.get_num_output_channels(), norm=norm))
+            self.residual.add_module('resblock_%d' % (i + 1), ResidualBlock(128, norm=norm))
 
         # Decoder
-        self.decoder = ConvDecoder(norm=norm, in_channels=self.encoder.get_num_output_channels())
+        self.decoder = ConvDecoder(norm=norm)
 
-    def forward(self, x, features):
-        encoder_output = self.encoder(x, features)
+    def forward(self, x):
+        encoder_output = self.encoder(x)
         residual_output = self.residual(encoder_output)
         decoder_output = self.decoder(residual_output)
 

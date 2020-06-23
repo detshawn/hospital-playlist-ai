@@ -65,9 +65,7 @@ def main():
             model_loader.to(device)
             style_model = model_loader.model
 
-            content_image_norm = normalize_batch(content_image)
-            vgg_features = VGG16()(content_image_norm)
-            output = style_model(content_image, vgg_features).cpu()
+            output = style_model(content_image).cpu()
 
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)

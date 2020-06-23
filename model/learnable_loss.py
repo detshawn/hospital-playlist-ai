@@ -48,8 +48,8 @@ class LearnableLoss(nn.Module):
     def get_model(self):
         return self.model
 
-    def forward(self, x, features):
-        return self.model(x, features)
+    def forward(self, x):
+        return self.model(x)
 
     def get_total_loss(self, losses):
         loss_tensor = torch.stack(losses, dim=0)
