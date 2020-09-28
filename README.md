@@ -1,5 +1,5 @@
 # hospital-playlist-ai
-This project aims to implement a style transfer of a photo-realistic picture given a specific art piece style. The algorithm follows `fast-style-transfer` (Perceptual Losses for Real-Time Style Transfer and Super-Resolution, 2016 ECCV) using PyTorch, and the code is based on [pytorch example codes](https://github.com/pytorch/examples/tree/master/fast_neural_style)
+This project aims to implement a style transfer of a photo-realistic picture given a specific art piece style. The algorithm follows `fast-style-transfer` (Perceptual Losses for Real-Time Style Transfer and Super-Resolution, 2016 ECCV) using PyTorch, and the code is based on [pytorch example codes](https://github.com/pytorch/examples/tree/master/fast_neural_style) and [hoya012's tutorial code](https://hoya012.github.io/blog/Fast-Style-Transfer-Tutorial/)
 
 ### Original Images (Left: Inference image, Right: Style image)
 <p align="center">
@@ -61,4 +61,4 @@ matplotlib
 
 ## Reference
 - <a href="https://github.com/pytorch/examples/tree/master/fast_neural_style" target="_blank"> pytorch example code </a>
-- <a href="https://colab.research.google.com/" target="_blank"> google colaboratory </a>
+- <a href="https://hoya012.github.io/blog/Fast-Style-Transfer-Tutorial/" target="_blank"> hoya012 - Fast Style Transfer Tutorial Blog </a>
